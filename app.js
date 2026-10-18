@@ -176,6 +176,7 @@ const ROUTES = {
   maal: { title: 'Opsparingsmål', short: 'Mål', ico: '🏆', render: renderMaal },
   jobs: { title: 'Mine jobs', ico: '💼', render: renderJobs, month: true },
   abonnementer: { title: 'Abonnementsjæger', ico: '✂️', render: renderAbonnementer },
+  sparetips: { title: 'Sparetips', ico: '💡', render: renderSparetips },
   indstillinger: { title: 'Indstillinger', ico: '⚙️', render: renderIndstillinger },
   mere: { title: 'Mere', ico: '☰', render: renderMere, hidden: true }
 };
@@ -187,7 +188,7 @@ function renderNav() {
   const r = route();
   $('#sideNav').innerHTML = Object.entries(ROUTES).filter(([, v]) => !v.hidden).map(([k, v]) =>
     `<a class="nav-link ${k === r ? 'active' : ''}" href="#/${k}"><span class="ico">${v.ico}</span>${v.title}</a>`).join('');
-  const moreActive = ['budget', 'jobs', 'abonnementer', 'indstillinger', 'mere'].includes(r);
+  const moreActive = ['budget', 'jobs', 'abonnementer', 'sparetips', 'indstillinger', 'mere'].includes(r);
   $('#bottomNav').innerHTML = `
     <a href="#/overblik" class="${r === 'overblik' ? 'active' : ''}"><span class="ico">📊</span>Overblik</a>
     <a href="#/posteringer" class="${r === 'posteringer' ? 'active' : ''}"><span class="ico">🧾</span>Poster</a>
@@ -757,9 +758,63 @@ function renderAbonnementer() {
   ${stopped.length ? `<div class="card section"><h2>Stoppede poster</h2><div class="list">${stopped.map(r => `<div class="row"><div class="avatar" style="background:var(--input)">${cat(r.categoryId).emoji}</div><div class="main-col"><div class="title">${esc(r.name)}</div><div class="meta">Stoppet efter ${monthLabel(r.endMonth)} · sparer ${kr(r.amount * 12, false)}/år</div></div><button class="btn btn-sm" data-action="reactivate-rec" data-id="${r.id}">Genaktivér</button></div>`).join('')}</div></div>` : ''}`;
 }
 
+/* ---------- Visning: Sparetips ---------- */
+const TIP_CATS = { hverdag: '🛒 Hverdag', bolig: '🏠 Bolig & energi', skat: '🧾 Skat', opsparing: '🐷 Opsparing', gaeld: '💳 Gæld' };
+const TIPS = [
+  { id: 't-betal-selv', e: '💸', cat: 'opsparing', t: 'Betal dig selv først', b: 'Lav en fast, automatisk overførsel til opsparing samme dag som lønnen kommer – så sparer du op, før pengene bliver brugt. Selv et lille beløb hver måned vokser over tid.', links: [['#/maal', '🏆 Opsparingsmål']] },
+  { id: 't-buffer', e: '🛟', cat: 'opsparing', t: 'Byg en buffer til det uventede', b: 'Hav en nødopsparing på en separat konto til fx tandlæge, bilreparation eller en periode med lavere indtægt. En udbredt tommelfingerregel er nogle måneders faste udgifter – og har du svingende indtægt, kan en større buffer give ro.', links: [['#/maal', '🏆 Opret et buffermål']] },
+  { id: 't-abonnementer', e: '✂️', cat: 'hverdag', t: 'Gå dine abonnementer igennem', b: 'Streaming, apps, fitness og medlemskaber løber stille og roligt videre. Gennemgå dem et par gange om året og opsig dem, du ikke bruger – du kan altid tegne dem igen.', links: [['#/abonnementer', '✂️ Abonnementsjæger']] },
+  { id: 't-forsikring', e: '🛡️', cat: 'hverdag', t: 'Sammenlign og forhandl dine forsikringer', b: 'Indhent tilbud fra flere selskaber og spørg dit nuværende selskab, om de kan give en bedre pris. Tjek også for dobbeltdækning – fx rejseforsikring, du måske allerede har via kort eller andre forsikringer.' },
+  { id: 't-elpris', e: '⚡', cat: 'bolig', t: 'Flyt elforbruget til de billige timer', b: 'Har du en timeprisaftale, svinger elprisen hen over døgnet. Kør vaskemaskine, opvasker og opladning, når prisen er lav – en elpris-app eller et varsel om billige timer gør det nemt.' },
+  { id: 't-skift', e: '🔁', cat: 'bolig', t: 'Skift el- og mobilabonnement', b: 'Mange betaler for et ældre abonnement, selvom der findes billigere med samme indhold. Sammenlign elaftaler på Forsyningstilsynets elpris.dk, og tjek hvor meget data du reelt bruger, før du vælger mobilabonnement.', links: [['https://elpris.dk', 'elpris.dk ↗']] },
+  { id: 't-kviklaan', e: '🚫', cat: 'gaeld', t: 'Undgå kviklån og dyr kredit', b: 'Forbrugslån, kreditkort og “køb nu – betal senere” kan blive meget dyre, især hvis afdragene trækker ud. Har du allerede dyr gæld, så betal den med den højeste rente af først.' },
+  { id: 't-aaop', e: '📊', cat: 'gaeld', t: 'Sammenlign lån på ÅOP og samlede omkostninger', b: 'ÅOP viser de samlede årlige omkostninger i procent – inkl. gebyrer – og gør lån nemmere at sammenligne end den pålydende rente. Se også, hvad lånet koster i alt i kroner over hele løbetiden.' },
+  { id: 't-24timer', e: '⏳', cat: 'hverdag', t: 'Brug 24-timers reglen ved impulskøb', b: 'Læg varen i kurven og vent et døgn, før du køber noget, du ikke havde planlagt. Ofte er lysten væk dagen efter. Køber du online, har du som regel 14 dages fortrydelsesret – men tjek betingelserne.' },
+  { id: 't-madplan', e: '🥕', cat: 'hverdag', t: 'Lav madplan og indkøbsliste', b: 'Planlæg ugens aftensmad og handl efter en liste. Det giver færre impulskøb, mindre madspild og færre dyre take away-aftener.', links: [['#/budget', '🎯 Sæt et madbudget']] },
+  { id: 't-tilbud', e: '📰', cat: 'hverdag', t: 'Brug tilbudsaviser – med omtanke', b: 'Køb ind på tilbud, når det er varer, du alligevel bruger, og hamstr holdbare basisvarer. Sammenlign kiloprisen frem for pakkeprisen, og husk at et tilbud kun er en besparelse, hvis du havde brug for varen.' },
+  { id: 't-fradrag', e: '🧾', cat: 'skat', t: 'Tjek, om du får alle dine fradrag', b: 'Fx kørselsfradrag til arbejde, håndværker- og servicefradrag (kun for arbejdsløn og betalt digitalt) samt fradrag for fagforening og a-kasse. Regler og satser ændrer sig – tjek skat.dk, hvad der gælder for dig.', links: [['https://skat.dk/borger/fradrag', 'Fradrag på skat.dk ↗']] },
+  { id: 't-forskud', e: '📝', cat: 'skat', t: 'Hold forskudsopgørelsen opdateret', b: 'Ret forskudsopgørelsen, når din indkomst eller dine fradrag ændrer sig – fx nyt job, lønstigning eller indtægt ved siden af. Så undgår du en overraskende restskat og betaler den rigtige skat løbende.', links: [['#/jobs', '💼 Mine jobs'], ['https://skat.dk', 'skat.dk ↗']] },
+  { id: 't-ask-pension', e: '📈', cat: 'opsparing', t: 'Kend aktiesparekonto og pension', b: 'En aktiesparekonto har sine egne skatteregler og et indskudsloft, og al investering indebærer risiko. Få overblik over din pension på pensionsinfo.dk – ikke for at vælge produkt her, men for at vide, hvad du har.', links: [['https://skat.dk/borger/aktier-og-andre-vaerdipapirer/aktiesparekonto', 'Aktiesparekonto ↗'], ['https://www.pensionsinfo.dk', 'PensionsInfo ↗']] },
+  { id: 't-gebyrer', e: '🏦', cat: 'gaeld', t: 'Tjek gebyrerne i din bank', b: 'Gennemgå bankens prisblad og din kontoudskrift for kortgebyrer, kontogebyrer og gebyrer på overførsler eller udlandsbetalinger. Spørg banken, om der findes en billigere løsning – eller sammenlign med andre banker.' },
+  { id: 't-brugt', e: '♻️', cat: 'hverdag', t: 'Køb brugt og sælg det, du ikke bruger', b: 'Møbler, tøj, børneting, sportsudstyr og elektronik kan ofte købes brugt for en brøkdel af prisen. Sælg samtidig de ting, der bare samler støv.' },
+  { id: 't-del', e: '🤝', cat: 'hverdag', t: 'Lån og del ting i stedet for at købe', b: 'Boremaskine, trailer, festudstyr eller bøger: lån af naboen, familien, biblioteket eller deleordninger, når du kun skal bruge noget en gang imellem.' },
+  { id: 't-kvalitet', e: '🧱', cat: 'hverdag', t: 'Køb kvalitet, der holder', b: 'Ting, du bruger hver dag – sko, værktøj, en god jakke – kan godt betale sig at købe i bedre kvalitet. Regn på prisen pr. brug frem for prisen i butikken, og husk reklamationsretten, hvis noget går i stykker for tidligt.' },
+  { id: 't-maal', e: '🎯', cat: 'opsparing', t: 'Sæt konkrete mål', b: 'Et mål med beløb og dato – en rejse, en buffer, en ny cykel – gør det meget lettere at spare op end “jeg burde spare mere”. Del store mål op i et månedligt beløb.', links: [['#/maal', '🏆 Opsparingsmål']] },
+  { id: 't-maaned', e: '📅', cat: 'opsparing', t: 'Gennemgå økonomien én gang om måneden', b: 'Sæt et fast tidspunkt af hver måned til at se indtægter, udgifter og budget igennem. Ti minutters overblik fanger glemte abonnementer, stigende priser og gør det nemt at justere i tide.', links: [['#/overblik', '📊 Månedens overblik'], ['#/budget', '🎯 Budget']] }
+];
+let tipFilter = 'alle';
+afterRender.sparetips = () => { const on = $('.tips-head .chip.on'); if (on) { const t = on.parentElement; t.scrollLeft = on.getBoundingClientRect().left - t.getBoundingClientRect().left + t.scrollLeft - 12; } };
+function renderSparetips() {
+  const done = new Set(S.settings.tipsDone || []);
+  const nDone = TIPS.filter(t => done.has(t.id)).length;
+  const list = TIPS.map((t, i) => ({ ...t, n: i + 1 })).filter(t => tipFilter === 'alle' || (tipFilter === 'mangler' ? !done.has(t.id) : t.cat === tipFilter));
+  const cnt = k => TIPS.filter(t => t.cat === k).length;
+  const chip = (k, label, n) => `<button class="chip ${tipFilter === k ? 'on' : ''}" data-action="tip-filter" data-f="${k}">${label} <span class="muted">${n}</span></button>`;
+  const link = ([href, label]) => href.startsWith('#') ? `<a class="btn btn-sm" href="${href}">${label}</a>` : `<a class="btn btn-sm btn-ghost" href="${href}" target="_blank" rel="noopener">${label}</a>`;
+  return `
+  <div class="card tips-head">
+    <div class="tips-hero">
+      <div><h2 style="margin:0">💡 20 sparetips alle burde kende</h2><p class="muted small" style="margin:4px 0 0">Enkle vaner, der virker år efter år. Sæt flueben, når du har gjort dem.</p></div>
+      <div class="tips-count"><b>${nDone}</b><span>af ${TIPS.length} gjort</span></div>
+    </div>
+    <div class="progress"><span style="width:${nDone / TIPS.length * 100}%"></span></div>
+    <div class="tabs" style="margin:14px 0 0;padding-bottom:2px">${chip('alle', 'Alle', TIPS.length)}${Object.entries(TIP_CATS).map(([k, l]) => chip(k, l, cnt(k))).join('')}${chip('mangler', '⬜ Ikke gjort', TIPS.length - nDone)}</div>
+  </div>
+  <div class="tips-grid">${list.map(t => `
+    <article class="card tip ${done.has(t.id) ? 'done' : ''}">
+      <div class="tip-top"><div class="avatar tip-emoji">${t.e}</div><div class="main-col"><span class="tip-n">Tip ${t.n}</span><h3>${t.t}</h3></div></div>
+      <p>${t.b}</p>
+      <div class="tip-foot">
+        <span class="pill">${TIP_CATS[t.cat]}</span>${(t.links || []).map(link).join('')}
+        <label class="tip-check"><input type="checkbox" data-tip="${t.id}" ${done.has(t.id) ? 'checked' : ''}><span>${done.has(t.id) ? 'Gjort ✓' : 'Marker som gjort ✓'}</span></label>
+      </div>
+    </article>`).join('') || '<div class="card"><p class="muted">Ingen tips her – godt gået! 🎉</p></div>'}</div>
+  <p class="muted small tips-note">ℹ️ Tipsene er generelle og ikke personlig økonomisk rådgivning. Regler, satser og fradrag ændrer sig – tjek altid de aktuelle regler hos fx skat.dk, og søg rådgivning, hvis du er i tvivl om din egen situation.</p>`;
+}
+
 /* ---------- Visning: Mere & Indstillinger ---------- */
 function renderMere() {
-  const tiles = [['budget', '🎯', 'Budget', 'Loft pr. kategori'], ['jobs', '💼', 'Mine jobs', 'Samlet & pr. job'], ['abonnementer', '✂️', 'Abonnementsjæger', 'Faste poster & besparelser'], ['indstillinger', '⚙️', 'Indstillinger', 'Kategorier, backup, import']];
+  const tiles = [['budget', '🎯', 'Budget', 'Loft pr. kategori'], ['jobs', '💼', 'Mine jobs', 'Samlet & pr. job'], ['abonnementer', '✂️', 'Abonnementsjæger', 'Faste poster & besparelser'], ['sparetips', '💡', 'Sparetips', '20 tips alle burde kende'], ['indstillinger', '⚙️', 'Indstillinger', 'Kategorier, backup, import']];
   return `<div class="more-grid">${tiles.map(([r, e, t, d]) => `<a class="card more-tile" href="#/${r}"><div class="avatar">${e}</div><strong>${t}</strong><span>${d}</span></a>`).join('')}</div>`;
 }
 function renderIndstillinger() {
@@ -1523,7 +1578,8 @@ const actions = {
   'import-json': () => $('#jsonFile').click(),
   'export-csv-all': () => download(`posteringer-${todayISO()}.csv`, toCSV(S.transactions), 'text/csv;charset=utf-8'),
   'export-csv-month': () => download(`posteringer-${selMonth}.csv`, toCSV(stats(selMonth).tx), 'text/csv;charset=utf-8'),
-  'import-csv': () => $('#csvFile').click()
+  'import-csv': () => $('#csvFile').click(),
+  'tip-filter': el => { tipFilter = el.dataset.f; render(); }
 };
 document.addEventListener('click', e => {
   if (e.target.matches('[data-close-overlay]')) { closeSheet(); return; }
@@ -1543,6 +1599,11 @@ document.addEventListener('change', async e => {
   if (id === 'txType') { txFilter.type = e.target.value; render(); }
   if (id === 'txCat') { txFilter.cat = e.target.value; render(); }
   if (id === 'subSort') { S.settings.subSort = e.target.value; save(); render(); }
+  if (e.target.dataset.tip) {
+    const set = new Set(S.settings.tipsDone || []); e.target.checked ? set.add(e.target.dataset.tip) : set.delete(e.target.dataset.tip);
+    S.settings.tipsDone = [...set]; save(); const y = window.scrollY; render(); window.scrollTo({ top: y });
+    if (e.target.checked) toast(set.size === TIPS.length ? 'Alle 20 tips gjort – flot! 🎉' : `Godt gået ✓ · ${set.size} af ${TIPS.length} gjort`);
+  }
   if (id === 'darkToggle') setTheme(e.target.checked ? 'dark' : 'light');
   if (id === 'nameInput') render();
   if (id === 'csvFile' && e.target.files[0]) { await openCsvImport(e.target.files[0]); e.target.value = ''; }

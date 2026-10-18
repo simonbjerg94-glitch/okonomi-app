@@ -410,3 +410,28 @@ select.mini { background: var(--input); border: 1px solid var(--border); border-
 .btn[disabled] { opacity: .5; pointer-events: none; }
 .rv-more { margin-top: 6px; width: 100%; }
 @media (max-width: 520px) { .rv-sugg-item .hide-sm { display: none; } .rv-sugg-item .btn { padding: 6px 10px; } }
+
+/* Sparetips */
+.tips-hero { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
+.tips-count { text-align: right; flex-shrink: 0; }
+.tips-count b { display: block; font-size: 30px; line-height: 1; font-weight: 800; letter-spacing: -.03em; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.tips-count span { font-size: 12px; color: var(--muted); }
+.tips-grid { display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 14px; }
+@media (min-width: 760px) { .tips-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1440px) { .tips-grid { grid-template-columns: repeat(3, 1fr); } }
+.tip { display: flex; flex-direction: column; gap: 10px; margin: 0; transition: border-color .2s, opacity .2s; }
+.tip-top { display: flex; align-items: center; gap: 12px; }
+.tip-emoji { width: 46px; height: 46px; font-size: 24px; background: rgba(124,92,255,.14); flex-shrink: 0; }
+.tip-n { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.tip h3 { margin: 2px 0 0; font-size: 16px; line-height: 1.25; }
+.tip p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.55; flex: 1; }
+.tip-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.tip-foot .btn-sm { text-decoration: none; }
+.tip-check { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; cursor: pointer; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--input); user-select: none; }
+.tip-check input { width: 18px; height: 18px; accent-color: var(--pos); margin: 0; }
+.tip.done { border-color: rgba(34,211,154,.45); }
+.tip.done .tip-emoji { background: rgba(34,211,154,.16); }
+.tip.done h3 { color: var(--muted); }
+.tip.done .tip-check { border-color: rgba(34,211,154,.5); color: var(--pos); background: rgba(34,211,154,.10); }
+.tips-note { margin: 16px 2px 4px; }
+@media (max-width: 520px) { .tip-check { margin-left: 0; width: 100%; justify-content: center; } }

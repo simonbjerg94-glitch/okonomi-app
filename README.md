@@ -22,3 +22,6 @@ Hosting: upload mappen som den er til en statisk host (GitHub Pages, Netlify, Ve
 - Lærte regler (`rules` i data og i JSON-backup): når du retter kategorien for en forretning under import eller senere, huskes det og går forud for de indbyggede regler. Du kan se og slette dem under Indstillinger → Lærte regler.
 - Faste poster findes automatisk: forretninger der går igen hver måned med omtrent samme beløb (også set op mod tidligere posteringer) foreslås som fast post med ét tryk – uden at lave dubletter af faste poster du allerede har.
 - Udvidet dansk regelsæt for forretninger. Cache `okonomi-v3`.
+
+### v4 – Sparetips
+- Ny side “Sparetips” (sidemenu + Mere) med 20 generelle danske sparetips, filter pr. emne (Hverdag, Bolig & energi, Skat, Opsparing, Gæld, Ikke gjort), “Marker som gjort ✓” gemt lokalt (`settings.tipsDone`, med i backup) og fremskridtstæller. Tips linker til Abonnementsjæger, Opsparingsmål, Budget, Mine jobs og officielle kilder. Cache `okonomi-v4`.
