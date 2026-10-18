@@ -69,7 +69,8 @@ const DEFAULT_JOBS = [
 ];
 const clone = o => JSON.parse(JSON.stringify(o));
 const freshState = () => ({
-  version: 2,
+  version: 3,
+  rules: [],
   jobs: clone(DEFAULT_JOBS),
   settings: { theme: document.documentElement.dataset.theme || 'dark', ptTaxRate: 40, name: 'Simon', subSort: 'amount-desc' },
   categories: JSON.parse(JSON.stringify(DEFAULT_CATEGORIES)),
@@ -103,7 +104,8 @@ function migrate() {
     }
     changed = true;
   }
-  if (S.version !== 2) { S.version = 2; changed = true; }
+  if (!Array.isArray(S.rules)) { S.rules = []; changed = true; }
+  if (S.version !== 3) { S.version = 3; changed = true; }
   return changed;
 }
 function save() {
@@ -798,6 +800,15 @@ function renderIndstillinger() {
       </details>
     </div>
   </div>
+  <div class="card section" id="rulesCard"><h2>🧠 Lærte regler <small>${(S.rules || []).length} stk.</small></h2>
+    <p class="muted small">Når du retter kategorien for en forretning (under import eller senere), husker appen det og bruger det automatisk næste gang – før de indbyggede regler.</p>
+    ${(S.rules || []).length ? `<div class="list">${[...S.rules].sort((a, b) => (b.updated || '').localeCompare(a.updated || '')).map(r => { const c = cat(r.categoryId); const j = job(r.jobId); return `<div class="row">
+      <div class="avatar" style="background:${c.color}22">${c.emoji}</div>
+      <div class="main-col"><div class="title">“${esc(r.key)}” → ${esc(c.name)}${j ? ` · ${j.emoji} ${esc(j.name)}` : ''}</div><div class="meta">${r.type === 'income' ? 'Indtægt' : 'Udgift'}${r.example ? ` · fx “${esc(r.example)}”` : ''}${r.updated ? ` · ${fmtDate(r.updated)}` : ''}</div></div>
+      <button class="icon-btn" data-action="delete-rule" data-id="${r.id}" aria-label="Slet regel" title="Slet regel">🗑️</button></div>`; }).join('')}</div>
+    <div class="btn-row" style="margin-top:10px"><button class="btn btn-sm btn-danger" data-action="clear-rules">Slet alle regler</button></div>`
+    : '<p class="muted small">Ingen lærte regler endnu.</p>'}
+  </div>
   <div class="card section"><h2>Eksempeldata & nulstil</h2>
     <p class="muted small">Prøv appen med opdigtede tal for et helt år, eller start forfra med en tom app.</p>
     <div class="btn-row">
@@ -809,9 +820,9 @@ function renderIndstillinger() {
 }
 
 /* ---------- Modaler ---------- */
-function openSheet(html, onMount) {
+function openSheet(html, onMount, cls = '') {
   const root = $('#modalRoot');
-  root.innerHTML = `<div class="overlay" data-close-overlay><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div></div>`;
+  root.innerHTML = `<div class="overlay" data-close-overlay><div class="sheet ${cls}" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div></div>`;
   document.body.style.overflow = 'hidden';
   onMount && onMount(root.querySelector('.sheet'));
   const first = root.querySelector('[autofocus]'); if (first && matchMedia('(min-width: 900px)').matches) first.focus();
@@ -869,6 +880,7 @@ function openTxModal(tx, preset = {}) {
       if (!date) { toast('Vælg en dato'); return; }
       const note = $('#fNote', sheet).value.trim();
       const jobPart = type === 'income' && job(jobId) ? { jobId } : {};
+      let learnedNow = '';
       if (isNew) {
         if ($('#fRec', sheet)?.checked) {
           const r = { id: uid(), type, amount, categoryId: catId, name: note || cat(catId).name, day: Number(date.slice(8)), startMonth: date.slice(0, 7), kind: catId === 'c-abonnement' ? 'abonnement' : 'fast', skipped: [], ...jobPart };
@@ -876,8 +888,12 @@ function openTxModal(tx, preset = {}) {
           S.transactions.push({ id: uid(), type, amount, date, categoryId: catId, note: r.name, recurringId: r.id, ...jobPart });
         } else S.transactions.push({ id: uid(), type, amount, date, categoryId: catId, note, ...jobPart });
         if (type === 'expense') lastUsed(catId);
-      } else { Object.assign(tx, { type, amount, date, categoryId: catId, note }); if (jobPart.jobId) tx.jobId = jobPart.jobId; else delete tx.jobId; }
-      save(); closeSheet(); selMonth = date.slice(0, 7); render(); toast(isNew ? 'Postering gemt ✓' : 'Ændringer gemt ✓');
+      } else {
+        const changedCat = tx.categoryId !== catId || (type === 'income' && (tx.jobId || '') !== (jobPart.jobId || ''));
+        Object.assign(tx, { type, amount, date, categoryId: catId, note }); if (jobPart.jobId) tx.jobId = jobPart.jobId; else delete tx.jobId;
+        if (changedCat && note && learnRule(note, type, catId, jobPart.jobId)) learnedNow = normalizeMerchant(note);
+      }
+      save(); closeSheet(); selMonth = date.slice(0, 7); render(); toast(isNew ? 'Postering gemt ✓' : learnedNow ? `Gemt ✓ · husker “${learnedNow}” som ${cat(catId).name} 🧠` : 'Ændringer gemt ✓');
     };
     const del = $('#fDel', sheet);
     if (del) del.onclick = () => {
@@ -1126,28 +1142,58 @@ function parseDateDK(s) {
   if ((m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})/))) { const y = m[3].length === 2 ? '20' + m[3] : m[3]; return `${y}-${pad(m[2])}-${pad(m[1])}`; }
   return null;
 }
+/* Indbyggede danske regler (tekst -> kategori). Lærte regler (S.rules) har altid forrang. */
 const CSV_RULES = [
-  [/netto|føtex|fotex|bilka|rema|lidl|coop|kvickly|irma|meny|superbrugsen|aldi|løvbjerg|spar |dagli'brugsen|365discount|wolt market|nemlig/i, 'c-mad'],
-  [/restaurant|cafe|café|mcd|burger|pizza|sushi|wolt|just ?eat|joe & the juice|starbucks|espresso house|bar |bodega|7-eleven|kebab|bager/i, 'c-ude'],
-  [/netflix|spotify|hbo|max\.com|viaplay|disney|youtube|apple\.com|icloud|tv ?2|podimo|mofibo|storytel|google one|chatgpt|adobe/i, 'c-abonnement'],
-  [/husleje|boligforening|ejendom|leje|boligselskab/i, 'c-bolig'],
-  [/ørsted|orsted|andel energi|norlys energi|ewii|vandværk|fjernvarme|forsyning|elselskab|radius/i, 'c-el'],
-  [/tryg|topdanmark|alm\. ?brand|codan|if skade|gjensidige|lb forsikring|forsikring/i, 'c-forsikring'],
-  [/telenor|telia|yousee|cbb|lebara|oister|hiper|fastspeed|3 mobil|norlys fiber|stofa|waoo/i, 'c-telefon'],
-  [/a-kasse|akasse|fagforening|danske fysioterapeuter|ftf|lærernes|ase |krifa/i, 'c-fag'],
-  [/dsb|rejsekort|movia|metro|q8|circle ?k|shell|uno-?x|ingo|ok benzin|parkering|easypark|bycyk|cykel/i, 'c-transport'],
-  [/fitness|sats|puregym|apotek|fysio|tandlæge|læge|crossfit/i, 'c-sundhed'],
-  [/h&m|zalando|magasin|matas|normal|elgiganten|power|ikea|jysk|zara|boozt|amazon|bahne|sport ?24|intersport/i, 'c-shopping'],
-  [/biograf|nordisk film|kino|tivoli|billetlugen|ticketmaster|koncert|museum|steam|playstation/i, 'c-fritid']
+  [/netflix|spotify|hbo|max\.com|viaplay|disney\s?\+?|skyshowtime|tv ?2 ?play|youtube|apple\.com|icloud|itunes|google (one|play|storage)|amazon prime|prime video|podimo|mofibo|storytel|nextory|audible|saxo premium|chatgpt|openai|adobe|microsoft 365|office 365|dropbox|patreon|playstation plus|xbox game pass|nintendo|allente|boxer|filmstriben|blockbuster|dazn|discovery\+|crunchyroll|deezer|tidal/i, 'c-abonnement'],
+  [/netto|føtex|fotex|bilka|rema ?1000|\brema\b|lidl|coop ?365|365 ?discount|\bcoop\b|kvickly|superbrugsen|dagli'?brugsen|\bbrugsen\b|\birma\b|\bmeny\b|\bspar\b|min købmand|løvbjerg|\baldi\b|\bfakta\b|nemlig\.?com|wolt market|lokal brugs|fødevarer|slagter|grønthandel|frugt ?& ?grønt|naturli|too good to go/i, 'c-mad'],
+  [/restaurant|\bcafe\b|café|mcdonald|\bmcd\b|burger king|max burgers|sunset ?boulevard|\bpizza|sushi|\bwolt\b|just ?eat|hungry|foodora|joe & the juice|joe and the juice|starbucks|espresso house|baresso|lagkagehuset|emmerys|\bbager|bageri|kebab|shawarma|grillbar|7-eleven|7 eleven|\bkfc\b|subway|domino|jensens bøfhus|o'learys|bistro|\bbar\b|bodega|cocktail|ølbar|street food|reffen|tapas|thai|vietnam|ramen/i, 'c-ude'],
+  [/husleje|boligforening|boligselskab|andelsbolig|boligafgift|fællesudgift|ejerforening|grundejerforening|realkredit|nykredit|totalkredit|\bdlr\b|bolig ?leje|ejendomsadm|ejendom/i, 'c-bolig'],
+  [/ørsted|orsted|andel energi|norlys energi|\bnorlys\b(?! fiber)|\bewii\b|\bseas\b|\bnve\b|\bnrgi\b|modstrøm|vindstød|true energy|velkommen energi|energi ?fyn|\baura\b|\bhofor\b|vandværk|\bvand\b|fjernvarme|varmeværk|forsyning|elselskab|radius|cerius|\bevida\b|naturgas|affald|renovation|el ?a ?conto|energi/i, 'c-el'],
+  [/telenor|telia|yousee|\bcbb\b|lebara|oister|\bhiper\b|fastspeed|3 ?mobil|\b3\.dk\b|norlys fiber|stofa|\bwaoo\b|fibia|eniig|greenspeed|call ?me|\bduka\b|lycamobile|altibox|kviknet|nuuday|bredbånd|mobilabonnement/i, 'c-telefon'],
+  [/tryg|topdanmark|alm\.? ?brand|codan|\bif skade|\bif forsikring|gjensidige|\blb forsikring|lærerstandens|købstædernes|\bgf forsikring|privatsikring|tjenestemændenes|sygeforsikring|forsikring/i, 'c-forsikring'],
+  [/a-kasse|akasse|a kasse|fagforening|danske fysioterapeuter|fysioterapeuter|\bftf\b|\base\b|krifa|det faglige hus|\bhk\b|\b3f\b|dansk metal|djøf|\bida\b|magistrenes|\bma ?-?kasse|faglig fælles|lederne|kristelig fagbevægelse|fagligt fælles/i, 'c-fag'],
+  [/\bdsb\b|rejsekort|movia|\bmetro\b|letbane|arriva|gomore|flixbus|\bq8\b|okq8|circle ?k|\bshell\b|uno-?x|\bingo\b|ok benzin|ok plus|\bf24\b|\bgoon\b|benzin|diesel|tankstation|parkering|easypark|parkman|apcoa|europark|q-park|bycykel|bycyklen|donkey republic|\blime\b|\bvoi\b|\btier\b|\btaxi\b|dantaxi|\buber\b|\bbolt\b|storebælt|brobizz|øresundsbro|\bclever\b|spirii|\bmonta\b|cykelreparation|cykelsmed|bilsyn|autoværksted|vejhjælp|falck/i, 'c-transport'],
+  [/fitness|\bsats\b|puregym|loop fitness|fresh fitness|crossfit|apotek|tandlæge|\blæge|optiker|synoptik|profil optik|kiropraktor|massage|psykolog|\byoga\b|fysioterapi|løbeshop|running/i, 'c-sundhed'],
+  [/h&m|\bhm\.com|zalando|magasin|\bmatas\b|\bnormal\b|elgiganten|\bpower\b|\bikea\b|\bjysk\b|\bzara\b|boozt|amazon|\btemu\b|shein|aliexpress|bahne|sport ?24|intersport|stadium|salling|søstrene grene|flying tiger|clas ohlson|bauhaus|silvan|harald nyborg|xl-byg|jem & fix|imerco|bog & idé|proshop|komplett|computersalg|coolshop|lyko|kop & kande|vinted|\bdba\b|apple store|samsung|lagerbutik/i, 'c-shopping'],
+  [/biograf|nordisk film|\bkino\b|cinemaxx|tivoli|billetlugen|ticketmaster|billetnet|eventim|koncert|museum|\bzoo\b|bowling|\bpadel|\bsteam\b|playstation store|\blego\b|legoland|bakken|experimentarium|booking\.com|hotels\.com|\bhotel|\bsas\b|norwegian|ryanair|easyjet|ferie|rejsebureau|sportigan|holdsport/i, 'c-fritid']
 ];
+const STOP_WORDS = new Set(['nota', 'nr', 'visa', 'dankort', 'mastercard', 'debit', 'kortkøb', 'køb', 'betaling', 'dk', 'aps', 'a/s', 'as', 'den', 'kl', 'fra', 'til', 'og', 'dkk', 'kr', 'mc', 'vd', 'ref']);
+/* Normaliserer en bankpostering til en "forretning", fx "Netto Valby 1234 Nota 5678" -> "netto valby" */
+function normalizeMerchant(text) {
+  let s = String(text || '').split(' · ')[0].toLowerCase();
+  s = s.replace(/\b\d{1,2}[.\-/]\d{1,2}([.\-/]\d{2,4})?\b/g, ' ').replace(/[*#:;,()"'’|/\\]/g, ' ').replace(/\S+/g, w => (/^[\d.\-+]+$/.test(w) || (w.match(/\d/g) || []).length >= 3) ? ' ' : w).replace(/[^a-z0-9æøåäöüé&+\- ]/g, ' ').replace(/\s+/g, ' ').trim();
+  return s.split(' ').filter(w => w.length > 1 && !STOP_WORDS.has(w)).slice(0, 3).join(' ');
+}
+function ruleFor(text, type) {
+  const key = normalizeMerchant(text); if (!key) return null;
+  return (S.rules || []).filter(r => r.type === type && (key === r.key || key.startsWith(r.key + ' ')) && S.categories.some(c => c.id === r.categoryId))
+    .sort((a, b) => b.key.length - a.key.length)[0] || null;
+}
+function learnRule(text, type, categoryId, jobId) {
+  const key = normalizeMerchant(text); if (!key || !categoryId) return false;
+  S.rules = S.rules || [];
+  let r = S.rules.find(x => x.key === key && x.type === type);
+  if (!r) { r = { id: uid(), key, type, categoryId, count: 0, example: String(text).split(' · ')[0].slice(0, 60) }; S.rules.push(r); }
+  r.categoryId = categoryId; r.count = (r.count || 0) + 1; r.updated = todayISO();
+  if (type === 'income' && job(jobId)) r.jobId = jobId; else delete r.jobId;
+  return true;
+}
+/* Klassificér: lærte regler > indbyggede regler > standard */
+function classify(text, type) {
+  const r = ruleFor(text, type);
+  if (r) return { categoryId: r.categoryId, jobId: type === 'income' ? (job(r.jobId) ? r.jobId : jobForCategory(r.categoryId, text)) : '', source: 'rule' };
+  const categoryId = guessCat(text, type);
+  return { categoryId, jobId: type === 'income' ? jobForCategory(categoryId, text) : '', source: 'builtin' };
+}
 function guessCat(text, type) {
+  const has = id => S.categories.some(c => c.id === id);
   if (type === 'income') {
-    if (/airbnb|udlejning|husleje fra|lejeindtægt/i.test(text) && S.categories.some(c => c.id === 'c-udlejning')) return 'c-udlejning';
-    if (/løn|loen|salary|lønoverførsel|handicapformidling/i.test(text)) return 'c-lon';
-    if (/pt|personlig træning|træning|mobilepay/i.test(text) && S.categories.some(c => c.id === 'c-pt')) return 'c-pt';
+    if (/airbnb|udlejning|husleje fra|lejeindtægt|lejer/i.test(text) && has('c-udlejning')) return 'c-udlejning';
+    if (/\bløn\b|lønoverførsel|loen|salary|feriepenge|handicapformidling|lønudbetaling/i.test(text) && has('c-lon')) return 'c-lon';
+    if (/\bpt\b|personlig træning|træning|mobilepay|mobile pay/i.test(text) && has('c-pt')) return 'c-pt';
     return S.categories.find(c => c.id === 'c-indt-andet')?.id || catsOf('income')[0].id;
   }
-  for (const [re, id] of CSV_RULES) if (re.test(text) && S.categories.some(c => c.id === id)) return id;
+  for (const [re, id] of CSV_RULES) if (re.test(text) && has(id)) return id;
   return S.categories.find(c => c.id === 'c-andet')?.id || catsOf('expense')[0].id;
 }
 function loadScript(src) {
@@ -1192,21 +1238,57 @@ function guessColumns(rows) {
   if (cText < 0) cText = cols.find(i => i !== cDate && i !== cAmt && sample.some(r => /[a-zæøå]{3}/i.test(r[i] || ''))) ?? cols.find(i => i !== cDate && i !== cAmt) ?? 2;
   return { ncol, header, date: cDate, text: cText, amount: cAmt, hasHeader: !parseDateDK(header[cDate]) && isNaN(parseAmount(header[cAmt])) };
 }
+const matchKey = r => r.matchKey || normalizeMerchant(r.name);
+function prettyName(note) {
+  let s = String(note || '').split(' · ')[0].replace(/\S*\d\S*/g, ' ').replace(/\s+/g, ' ').trim();
+  if (s && s === s.toUpperCase()) s = s.toLowerCase().replace(/(^|\s)(\S)/g, (m, a, b) => a + b.toUpperCase());
+  return s.slice(0, 40) || 'Fast post';
+}
+const median = arr => { const a = [...arr].sort((x, y) => x - y); const m = Math.floor(a.length / 2); return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
+/* Find forretninger der går igen ca. hver måned med nogenlunde samme beløb (import + eksisterende historik) */
+function detectRecurring(rows) {
+  const groups = {};
+  const add = (key, type, date, amount, note, src) => { const k = type + '|' + key; (groups[k] = groups[k] || { key, type, items: [] }).items.push({ date, amount, note, src }); };
+  rows.filter(r => r.include && !r.dupe && !r.recurringId && r.key).forEach(r => add(r.key, r.type, r.date, r.amount, r.note, r));
+  const keys = new Set(Object.keys(groups));
+  S.transactions.filter(t => !t.recurringId && t.note).forEach(t => { const k = normalizeMerchant(t.note); if (k && keys.has(t.type + '|' + k)) add(k, t.type, t.date, t.amount, t.note, null); });
+  const out = [];
+  for (const g of Object.values(groups)) {
+    const imp = g.items.filter(i => i.src); if (!imp.length) continue;
+    const byMonth = {}; g.items.forEach(i => (byMonth[i.date.slice(0, 7)] = byMonth[i.date.slice(0, 7)] || []).push(i));
+    const months = Object.keys(byMonth).sort();
+    if (months.length < 3 || Object.values(byMonth).some(a => a.length > 2) || g.items.length / months.length > 1.3) continue;
+    const span = monthDiff(months[0], months[months.length - 1]) + 1;
+    if (months.length / span < 0.75) continue;
+    const med = median(g.items.map(i => i.amount));
+    const tol = Math.max(25, med * 0.15);
+    if (g.items.filter(i => Math.abs(i.amount - med) > tol).length > g.items.length * 0.2) continue;
+    const lastRow = imp.sort((a, b) => b.date.localeCompare(a.date))[0].src;
+    const catId = lastRow.categoryId;
+    const exists = S.recurring.some(r => isActiveRec(r) && r.type === g.type && (
+      matchKey(r) === g.key || g.key.startsWith(matchKey(r) + ' ') || (matchKey(r) && matchKey(r).startsWith(g.key + ' ')) ||
+      (r.categoryId === catId && Math.abs(r.amount - med) <= Math.max(5, med * 0.03))));
+    if (exists) continue;
+    out.push({ id: g.type + '|' + g.key, key: g.key, type: g.type, name: prettyName(lastRow.note), amount: Math.round(med * 100) / 100,
+      day: Math.round(median(g.items.map(i => Number(i.date.slice(8))))), months: months.length, last: months[months.length - 1],
+      categoryId: catId, jobId: lastRow.jobId, rowIds: imp.map(i => i.src.id) });
+  }
+  return out.sort((a, b) => b.amount - a.amount);
+}
 async function openCsvImport(file) {
   let parsed;
   try { parsed = await fileToRows(file); } catch (e) { toast('Kunne ikke læse filen'); return; }
-  const { rows, delim } = parsed;
-  if (!rows.length) { toast('Filen ser tom ud'); return; }
-  const lsb = detectLSB(rows);
-  const g = guessColumns(rows);
-  const ncol = g.ncol;
+  const { rows: raw, delim } = parsed;
+  if (!raw.length) { toast('Filen ser tom ud'); return; }
+  const lsb = detectLSB(raw), g = guessColumns(raw), ncol = g.ncol;
   const m0 = lsb ? { date: lsb.date, text: lsb.text, amount: lsb.amount, hasHeader: false } : g;
-  const colName = i => g.hasHeader && !lsb ? (g.header[i] || `Kolonne ${i + 1}`) : `Kolonne ${i + 1}${rows[0][i] ? ' – ' + String(rows[0][i]).slice(0, 18) : ''}`;
+  const colName = i => g.hasHeader && !lsb ? (g.header[i] || `Kolonne ${i + 1}`) : `Kolonne ${i + 1}${raw[0][i] ? ' – ' + String(raw[0][i]).slice(0, 18) : ''}`;
   const colOpts = sel => [...Array(ncol).keys()].map(i => `<option value="${i}" ${i === sel ? 'selected' : ''}>${esc(colName(i))}</option>`).join('');
-  const transfers = lsb ? rows.filter(lsb.isTransfer).length : 0;
-  openSheet(`${sheetHead('🏦 Importér kontoudtog')}
-    ${lsb ? `<div class="banner ok"><span>✅</span><div class="grow"><strong>Genkendt: ${lsb.bank}</strong> (${lsb.format}${lsb.account ? ' · konto ' + esc(lsb.account) : ''}). Kolonnerne er sat op automatisk – tjek forhåndsvisningen og tryk Importér.</div></div>`
-      : `<p class="muted small">Fundet ${rows.length} rækker${delim === 'xlsx' ? ' i Excel-arket' : ` · separator “${delim === '\t' ? 'tab' : delim}”`}. Vælg hvilke kolonner der indeholder dato, tekst og beløb.</p>`}
+  const transfers = lsb ? raw.filter(lsb.isTransfer).length : 0;
+  let rows = [], suggestions = [], dismissed = new Set(), suggAll = false;
+  openSheet(`${sheetHead('🏦 Gennemse import')}
+    ${lsb ? `<div class="banner ok"><span>✅</span><div class="grow"><strong>Genkendt: ${lsb.bank}</strong> (${lsb.format}${lsb.account ? ' · konto ' + esc(lsb.account) : ''}). Kolonnerne er sat op automatisk.</div></div>`
+      : `<p class="muted small">Fundet ${raw.length} rækker${delim === 'xlsx' ? ' i Excel-arket' : ` · separator “${delim === '\t' ? 'tab' : delim}”`}. Vælg hvilke kolonner der indeholder dato, tekst og beløb.</p>`}
     <details class="map" ${lsb ? '' : 'open'}><summary>Kolonner</summary>
       <div class="field-row" style="grid-template-columns:1fr 1fr 1fr;margin-top:10px">
         <div class="field"><label>Dato</label><select class="input" id="mDate">${colOpts(m0.date)}</select></div>
@@ -1216,43 +1298,131 @@ async function openCsvImport(file) {
       <label class="switch"><span>Første række er overskrifter</span><input type="checkbox" id="mHead" ${m0.hasHeader ? 'checked' : ''}></label>
     </details>
     ${transfers ? `<label class="switch"><span>Spring kontooverførsler over <span class="muted small">(${transfers} “Til/Fra …”-overførsler mellem konti)</span></span><input type="checkbox" id="mSkipTr"></label>` : ''}
-    <p class="muted small">Negative beløb bliver til udgifter, positive til indtægter. Kategori og job gættes ud fra teksten, og posteringer der allerede findes, springes over.</p>
-    <div id="mPreview"></div>
-    <button class="btn btn-primary btn-block" id="mImport" style="margin-top:12px">Importér</button>`, sheet => {
+    <div id="rvSummary" class="rv-summary"></div>
+    <div id="rvSugg"></div>
+    <p class="muted small" style="margin:4px 2px 10px">Ret kategori${S.jobs.length ? ' og job' : ''} direkte i listen – appen husker dit valg for den forretning næste gang. Markér flere for at ændre dem på én gang.</p>
+    <div id="rvList"></div>
+    <div class="rv-bar" id="rvBar"></div>`, sheet => {
+    const isDupe = n => S.transactions.some(t => t.date === n.date && Math.abs(t.amount - n.amount) < .005 && t.type === n.type && (t.note || '') === n.note);
     const build = () => {
       const d = +$('#mDate', sheet).value, tx = +$('#mText', sheet).value, a = +$('#mAmt', sheet).value;
       const useLsb = lsb && d === lsb.date && tx === lsb.text && a === lsb.amount;
       const skipTr = $('#mSkipTr', sheet)?.checked;
-      const body = $('#mHead', sheet).checked ? rows.slice(1) : rows;
-      return body.map(r => {
+      const body = $('#mHead', sheet).checked ? raw.slice(1) : raw;
+      const active = S.recurring.filter(isActiveRec);
+      const seen = new Set();
+      rows = body.map(r => {
         if (skipTr && lsb.isTransfer(r)) return null;
         const date = parseDateDK(r[d]); const amount = parseAmount(r[a]);
         if (!date || isNaN(amount) || amount === 0) return null;
         const type = amount < 0 ? 'expense' : 'income';
         const note = (useLsb ? lsb.textOf(r) : String(r[tx] || '')).replace(/\s+/g, ' ').trim().slice(0, 90);
-        const categoryId = guessCat(note, type);
-        const o = { id: uid(), date, amount: Math.abs(amount), type, note, categoryId, imported: true };
-        if (type === 'income') { const jid = jobForCategory(categoryId, note); if (jid) o.jobId = jid; }
+        const c = classify(note, type);
+        const o = { id: uid(), date, amount: Math.abs(amount), type, note, key: normalizeMerchant(note), categoryId: c.categoryId, jobId: c.jobId, source: c.source, include: true, sel: false, user: false };
+        const sig = `${date}|${o.amount}|${type}|${note}`;
+        o.dupe = isDupe(o) || seen.has(sig); seen.add(sig);
+        if (o.dupe) o.include = false;
+        else {
+          const rec = active.find(x => x.type === type && matchKey(x) && (o.key === matchKey(x) || o.key.startsWith(matchKey(x) + ' ')) && Math.abs(x.amount - o.amount) <= Math.max(5, x.amount * 0.15));
+          if (rec) { o.recurringId = rec.id; o.matched = rec.name; if (o.source !== 'rule') { o.categoryId = rec.categoryId; if (type === 'income' && job(rec.jobId)) o.jobId = rec.jobId; } }
+        }
         return o;
       }).filter(Boolean);
+      suggestions = detectRecurring(rows);
     };
-    const isDupe = n => S.transactions.some(t => t.date === n.date && Math.abs(t.amount - n.amount) < .005 && t.type === n.type && (t.note || '') === n.note);
-    const preview = () => {
-      const list = build(); const dupes = list.filter(isDupe).length;
-      const inc = sum(list.filter(t => t.type === 'income').map(t => t.amount)), exp = sum(list.filter(t => t.type === 'expense').map(t => t.amount));
-      $('#mPreview', sheet).innerHTML = `<div class="scroll-x"><table class="tbl"><thead><tr><th>Dato</th><th>Tekst</th><th>Kategori</th><th class="r">Beløb</th></tr></thead><tbody>${list.slice(0, 6).map(t => `<tr><td>${fmtDateNum(t.date)}</td><td style="max-width:180px;overflow:hidden;text-overflow:ellipsis">${esc(t.note)}</td><td>${cat(t.categoryId).emoji} ${esc(cat(t.categoryId).name)}${t.jobId ? ` · ${job(t.jobId).emoji}` : ''}</td><td class="r ${t.type === 'income' ? 'pos' : ''}">${t.type === 'income' ? '' : '−'}${kr(t.amount)}</td></tr>`).join('')}</tbody></table></div>
-        <p class="small muted">${list.length} posteringer (${kr(inc, false)} ind · ${kr(exp, false)} ud)${dupes ? ` · ${dupes} findes allerede og springes over` : ''}.</p>`;
+    const catOpts = (type, sel) => catsOf(type).map(c => `<option value="${c.id}" ${c.id === sel ? 'selected' : ''}>${c.emoji} ${esc(c.name)}</option>`).join('');
+    const jobOpts = sel => `<option value="">Intet job</option>` + S.jobs.map(j => `<option value="${j.id}" ${j.id === sel ? 'selected' : ''}>${j.emoji} ${esc(j.name)}</option>`).join('');
+    const rowHTML = r => `<div class="rv-row ${r.include ? '' : 'off'} ${r.sel ? 'sel' : ''}" data-rid="${r.id}">
+      ${r.dupe ? '<span class="rv-sel-ph"></span>' : `<input type="checkbox" class="rv-sel" data-rid="${r.id}" ${r.sel ? 'checked' : ''} aria-label="Markér">`}
+      <div class="rv-main">
+        <div class="rv-top"><span class="rv-note">${esc(r.note || '(ingen tekst)')}</span><span class="rv-amt ${r.type === 'income' ? 'pos' : ''}">${r.type === 'income' ? '+' : '−'}${kr(r.amount)}</span></div>
+        <div class="rv-sub"><span class="rv-date">${fmtDate(r.date)}</span>
+          ${r.dupe ? '<span class="pill">Dublet – springes over</span>' : `<select class="mini rv-cat" data-rid="${r.id}" aria-label="Kategori">${catOpts(r.type, r.categoryId)}</select>
+          ${r.type === 'income' && S.jobs.length ? `<select class="mini rv-job" data-rid="${r.id}" aria-label="Job">${jobOpts(r.jobId)}</select>` : ''}
+          ${r.matched ? `<span class="pill accent">🔁 ${esc(r.matched)}</span>` : ''}${r.source === 'rule' && !r.user ? '<span class="pill ok">🧠 lært</span>' : ''}`}
+        </div>
+      </div>
+      ${r.dupe ? '' : `<button type="button" class="rv-inc ${r.include ? 'on' : ''}" data-rid="${r.id}" title="${r.include ? 'Medtages – tryk for at udelade' : 'Udeladt – tryk for at medtage'}" aria-label="${r.include ? 'Udelad' : 'Medtag'}">${r.include ? '✓' : '✕'}</button>`}
+    </div>`;
+    const renderReview = () => {
+      const scroller = sheet; const top = scroller.scrollTop;
+      const inc = rows.filter(r => r.include), dup = rows.filter(r => r.dupe), off = rows.filter(r => !r.include && !r.dupe);
+      const sIn = sum(inc.filter(r => r.type === 'income').map(r => r.amount)), sOut = sum(inc.filter(r => r.type === 'expense').map(r => r.amount));
+      $('#rvSummary', sheet).innerHTML = `<div class="rv-stat"><b>${inc.length}</b><span>gemmes</span></div><div class="rv-stat"><b class="pos">+${kr(sIn, false)}</b><span>ind</span></div><div class="rv-stat"><b class="neg">−${kr(sOut, false)}</b><span>ud</span></div><div class="rv-stat"><b>${dup.length + off.length}</b><span>${dup.length && off.length ? `springes over (${dup.length} dubl.)` : dup.length ? 'dubletter' : 'udeladt'}</span></div>`;
+      const sg = suggestions.filter(s => !dismissed.has(s.id));
+      $('#rvSugg', sheet).innerHTML = sg.length ? `<div class="rv-sugg"><h3>🔁 Ser ud til at være faste poster <small class="muted">(${sg.length})</small></h3>${(suggAll ? sg : sg.slice(0, 3)).map(s => `<div class="rv-sugg-item"><div class="avatar" style="background:${cat(s.categoryId).color}22">${cat(s.categoryId).emoji}</div><div class="main-col"><div class="title">${esc(s.name)}</div><div class="meta">${s.type === 'income' ? '+' : '−'}${kr(s.amount)} · ca. d. ${s.day}. · set ${s.months} måneder</div></div><button class="btn btn-sm btn-primary" data-sugg="${esc(s.id)}"><span class="hide-sm">Gør til </span>fast post</button><button class="icon-btn" data-sugg-x="${esc(s.id)}" aria-label="Ignorér">✕</button></div>`).join('')}${sg.length > 3 ? `<button class="btn btn-sm btn-ghost rv-more" data-sugg-more>${suggAll ? 'Vis færre' : `Vis alle ${sg.length} forslag`}</button>` : ''}</div>` : '';
+      const groups = {};
+      rows.filter(r => !r.dupe).forEach(r => (groups[r.categoryId] = groups[r.categoryId] || []).push(r));
+      const order = Object.entries(groups).sort((a, b) => sum(b[1].filter(r => r.include).map(r => r.amount)) - sum(a[1].filter(r => r.include).map(r => r.amount)));
+      $('#rvList', sheet).innerHTML = order.map(([cid, list]) => {
+        const c = cat(cid); const incl = list.filter(r => r.include); const tot = sum(incl.map(r => r.type === 'income' ? r.amount : -r.amount));
+        const allSel = list.every(r => r.sel);
+        return `<div class="rv-group"><div class="rv-ghead"><input type="checkbox" class="rv-gsel" data-cid="${cid}" ${allSel ? 'checked' : ''} aria-label="Markér alle i ${esc(c.name)}"><span class="avatar" style="background:${c.color}22;width:30px;height:30px;font-size:15px;border-radius:9px">${c.emoji}</span><strong>${esc(c.name)}</strong><span class="muted small">${incl.length}${incl.length !== list.length ? ` af ${list.length}` : ''} stk.</span><span class="rv-gtot ${tot >= 0 ? 'pos' : ''}">${tot >= 0 ? '+' : '−'}${kr(Math.abs(tot), false)}</span></div>${list.sort((a, b) => b.date.localeCompare(a.date)).map(rowHTML).join('')}</div>`;
+      }).join('') + (dup.length ? `<details class="rv-group rv-dupes"><summary class="rv-ghead"><span class="avatar" style="background:var(--input);width:30px;height:30px;font-size:15px;border-radius:9px">♻️</span><strong>Dubletter</strong><span class="muted small">${dup.length} stk. findes allerede – springes over</span></summary>${dup.map(rowHTML).join('')}</details>` : '')
+        || '<p class="muted">Ingen gyldige posteringer i filen.</p>';
+      const sel = rows.filter(r => r.sel);
+      const types = new Set(sel.map(r => r.type));
+      $('#rvBar', sheet).innerHTML = sel.length ? `<div class="rv-bulk"><strong>${sel.length} markeret</strong>
+          ${types.size === 1 ? `<select class="mini" id="bulkCat"><option value="">Skift kategori…</option>${catOpts([...types][0], '')}</select>` : '<span class="muted small">Markér kun udgifter eller kun indtægter for at skifte kategori</span>'}
+          ${types.has('income') && types.size === 1 && S.jobs.length ? `<select class="mini" id="bulkJob"><option value="-">Skift job…</option>${jobOpts('')}</select>` : ''}
+          <button class="btn btn-sm" id="bulkOff">Udelad</button><button class="btn btn-sm" id="bulkOn">Medtag</button><button class="btn btn-sm btn-ghost" id="bulkClear">Fravælg</button></div>`
+        : '';
+      $('#rvBar', sheet).insertAdjacentHTML('beforeend', `<button class="btn btn-primary btn-block" id="rvSave" ${inc.length ? '' : 'disabled'}>Gem alle (${inc.length})</button>`);
+      scroller.scrollTop = top;
     };
-    ['#mDate', '#mText', '#mAmt', '#mHead', '#mSkipTr'].forEach(s => $(s, sheet)?.addEventListener('change', preview));
-    preview();
-    $('#mImport', sheet).onclick = () => {
-      const list = build().filter(n => !isDupe(n));
-      if (!list.length) { toast('Ingen nye posteringer at importere'); return; }
-      S.transactions.push(...list); save(); closeSheet();
-      selMonth = list.map(t => t.date.slice(0, 7)).sort().pop(); location.hash = '#/posteringer'; render();
-      toast(`${list.length} posteringer importeret ✓`);
+    const byId = id => rows.find(r => r.id === id);
+    const setCat = (r, v, propagate) => {
+      r.categoryId = v; r.user = true; r.source = 'user';
+      if (r.type === 'income') r.jobId = jobForCategory(v, r.note) || r.jobId;
+      let n = 0;
+      if (propagate && r.key) rows.forEach(o => { if (o !== r && !o.dupe && !o.user && o.type === r.type && o.key === r.key) { o.categoryId = v; if (o.type === 'income') o.jobId = r.jobId; o.source = 'user'; n++; } });
+      return n;
     };
-  });
+    sheet.addEventListener('change', e => {
+      const t = e.target;
+      if (['mDate', 'mText', 'mAmt', 'mHead', 'mSkipTr'].includes(t.id)) { build(); renderReview(); return; }
+      if (t.classList.contains('rv-sel')) { byId(t.dataset.rid).sel = t.checked; renderReview(); return; }
+      if (t.classList.contains('rv-gsel')) { rows.filter(r => !r.dupe && r.categoryId === t.dataset.cid).forEach(r => r.sel = t.checked); renderReview(); return; }
+      if (t.classList.contains('rv-cat')) { const r = byId(t.dataset.rid); const n = setCat(r, t.value, true); renderReview(); toast(n ? `Ændret – også ${n} andre fra samme forretning` : `Flyttet til ${cat(t.value).name}`); return; }
+      if (t.classList.contains('rv-job')) { const r = byId(t.dataset.rid); r.jobId = t.value; r.user = true; rows.forEach(o => { if (o !== r && !o.dupe && !o.user && o.type === 'income' && o.key === r.key) o.jobId = t.value; }); renderReview(); return; }
+      if (t.id === 'bulkCat' && t.value) { const sel = rows.filter(r => r.sel); sel.forEach(r => setCat(r, t.value, false)); sel.forEach(r => r.sel = false); renderReview(); toast(`${sel.length} flyttet til ${cat(t.value).name}`); return; }
+      if (t.id === 'bulkJob' && t.value !== '-') { const sel = rows.filter(r => r.sel); sel.forEach(r => { r.jobId = t.value; r.user = true; r.sel = false; }); renderReview(); toast(`${sel.length} knyttet til ${t.value ? job(t.value).name : 'intet job'}`); return; }
+    });
+    sheet.addEventListener('click', e => {
+      const t = e.target;
+      const inc = t.closest('.rv-inc'); if (inc) { const r = byId(inc.dataset.rid); r.include = !r.include; renderReview(); return; }
+      if (t.id === 'bulkOff' || t.id === 'bulkOn') { rows.filter(r => r.sel).forEach(r => { r.include = t.id === 'bulkOn'; r.sel = false; }); renderReview(); return; }
+      if (t.id === 'bulkClear') { rows.forEach(r => r.sel = false); renderReview(); return; }
+      if (t.closest('[data-sugg-more]')) { suggAll = !suggAll; renderReview(); return; }
+      const sx = t.closest('[data-sugg-x]'); if (sx) { dismissed.add(sx.dataset.suggX); renderReview(); return; }
+      const sb = t.closest('[data-sugg]'); if (sb) {
+        const s = suggestions.find(x => x.id === sb.dataset.sugg); if (!s) return;
+        const first = byId(s.rowIds[0]); const cid = first ? first.categoryId : s.categoryId;
+        const r = { id: uid(), name: s.name, type: s.type, amount: s.amount, day: Math.min(28, Math.max(1, s.day)), categoryId: cid, kind: cid === 'c-abonnement' ? 'abonnement' : 'fast', startMonth: s.last, skipped: [], matchKey: s.key, ...(s.type === 'income' && job(first?.jobId) ? { jobId: first.jobId } : {}) };
+        S.recurring.push(r);
+        rows.forEach(o => { if (s.rowIds.includes(o.id) && o.date.slice(0, 7) >= r.startMonth) { o.recurringId = r.id; o.matched = r.name; } });
+        S.transactions.forEach(t2 => { if (!t2.recurringId && t2.type === s.type && t2.date.slice(0, 7) >= r.startMonth && normalizeMerchant(t2.note) === s.key) t2.recurringId = r.id; });
+        save(); dismissed.add(s.id); renderReview(); toast(`🔁 ${r.name} er nu en fast post (${kr(r.amount)}/md.)`); return;
+      }
+      if (t.id === 'rvSave') {
+        const list = rows.filter(r => r.include && !r.dupe);
+        if (!list.length) { toast('Ingen posteringer valgt'); return; }
+        let learned = 0; const learnedKeys = new Set();
+        for (const r of list) {
+          if (r.recurringId) S.transactions = S.transactions.filter(x => !(x.recurringId === r.recurringId && x.date.slice(0, 7) === r.date.slice(0, 7) && !x.imported));
+          const o = { id: r.id, date: r.date, amount: r.amount, type: r.type, note: r.note, categoryId: r.categoryId, imported: true };
+          if (r.type === 'income' && job(r.jobId)) o.jobId = r.jobId;
+          if (r.recurringId) o.recurringId = r.recurringId;
+          S.transactions.push(o);
+          if (r.user && r.key && !learnedKeys.has(r.type + r.key) && learnRule(r.note, r.type, r.categoryId, r.jobId)) { learned++; learnedKeys.add(r.type + r.key); }
+        }
+        applyRecurring(); save(); closeSheet();
+        selMonth = list.map(t2 => t2.date.slice(0, 7)).sort().pop(); location.hash = '#/posteringer'; render();
+        toast(`${list.length} posteringer gemt ✓${learned ? ` · ${learned} ${learned === 1 ? 'regel' : 'regler'} lært 🧠` : ''}`);
+      }
+    });
+    build(); renderReview();
+  }, 'sheet-xl');
 }
 
 /* ---------- Eksempeldata ---------- */
@@ -1340,6 +1510,8 @@ const actions = {
   'edit-cat': el => openCatModal(cat(el.dataset.id)),
   'add-job': () => openJobModal(),
   'edit-job': el => openJobModal(job(el.dataset.id)),
+  'delete-rule': el => { S.rules = (S.rules || []).filter(r => r.id !== el.dataset.id); save(); render(); setTimeout(() => $('#rulesCard')?.scrollIntoView({ block: 'center' }), 50); toast('Regel slettet'); },
+  'clear-rules': () => { if (!confirm('Slet alle lærte regler?')) return; S.rules = []; save(); render(); toast('Alle regler slettet'); },
   'prev-month': () => { selMonth = addMonths(selMonth, -1); render(); },
   'next-month': () => { selMonth = addMonths(selMonth, 1); render(); },
   'toggle-theme': () => setTheme(S.settings.theme === 'dark' ? 'light' : 'dark'),

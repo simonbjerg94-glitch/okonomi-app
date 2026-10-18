@@ -369,3 +369,44 @@ details.map { margin-bottom: 10px; }
 details.tip { margin-top: 14px; background: var(--input); border-radius: 12px; padding: 6px 14px; }
 details.tip ol { margin: 6px 0 8px; padding-left: 20px; font-size: 13px; line-height: 1.6; }
 details.tip p { font-size: 12.5px; color: var(--muted); margin: 0 0 8px; }
+/* Import-gennemsyn */
+.sheet.sheet-xl { max-width: 940px; max-height: 96vh; padding-bottom: 0; }
+@media (max-width: 899px) { .sheet.sheet-xl { height: 96vh; border-radius: 22px 22px 0 0; padding-left: 14px; padding-right: 14px; } }
+.rv-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 12px 0 4px; }
+.rv-stat { background: var(--input); border-radius: 12px; padding: 8px 10px; min-width: 0; }
+.rv-stat b { display: block; font-size: 15px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rv-stat span { font-size: 11.5px; color: var(--muted); }
+@media (max-width: 520px) { .rv-summary { grid-template-columns: repeat(2, 1fr); } }
+.rv-sugg { background: linear-gradient(135deg, rgba(124,92,255,.14), rgba(0,194,255,.08)); border: 1px solid var(--border); border-radius: 16px; padding: 12px 14px; margin: 12px 0 4px; }
+.rv-sugg h3 { margin: 0 0 6px; font-size: 14px; }
+.rv-sugg-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); }
+.rv-sugg-item:first-of-type { border-top: none; }
+.rv-sugg-item .avatar { width: 36px; height: 36px; font-size: 17px; border-radius: 11px; }
+.rv-sugg-item .main-col { flex: 1; min-width: 0; }
+.rv-sugg-item .title { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rv-sugg-item .meta { font-size: 12px; color: var(--muted); }
+.rv-group { margin-bottom: 10px; border: 1px solid var(--border); border-radius: 16px; overflow: hidden; background: var(--card); }
+.rv-ghead { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--input); font-size: 14px; cursor: default; }
+.rv-ghead .rv-gtot { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+details.rv-dupes summary { cursor: pointer; list-style: none; }
+.rv-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-top: 1px solid var(--border); transition: background .15s, opacity .15s; }
+.rv-row.sel { background: rgba(124,92,255,.12); }
+.rv-row.off { opacity: .48; }
+.rv-row.off .rv-note { text-decoration: line-through; }
+.rv-sel, .rv-gsel { width: 20px; height: 20px; accent-color: #7c5cff; flex-shrink: 0; cursor: pointer; }
+.rv-sel-ph { width: 20px; flex-shrink: 0; }
+.rv-main { flex: 1; min-width: 0; }
+.rv-top { display: flex; gap: 10px; align-items: baseline; }
+.rv-note { flex: 1; min-width: 0; font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rv-amt { font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 14px; }
+.rv-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; }
+.rv-date { color: var(--muted); min-width: 78px; }
+select.mini { background: var(--input); border: 1px solid var(--border); border-radius: 9px; padding: 5px 8px; font-size: 12.5px; max-width: 190px; color: var(--text); }
+.rv-inc { width: 34px; height: 34px; border-radius: 10px; border: 1.5px solid var(--border); background: transparent; cursor: pointer; font-weight: 700; flex-shrink: 0; color: var(--muted); }
+.rv-inc.on { background: rgba(34,211,154,.16); border-color: rgba(34,211,154,.5); color: var(--pos); }
+.rv-bar { position: sticky; bottom: 0; z-index: 3; background: var(--card-solid); margin: 10px -20px 0; padding: 10px 20px calc(14px + var(--safe-b)); border-top: 1px solid var(--border); box-shadow: 0 -10px 24px rgba(0,0,0,.18); }
+@media (max-width: 899px) { .rv-bar { margin-left: -14px; margin-right: -14px; padding-left: 14px; padding-right: 14px; } }
+.rv-bulk { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 13px; }
+.btn[disabled] { opacity: .5; pointer-events: none; }
+.rv-more { margin-top: 6px; width: 100%; }
+@media (max-width: 520px) { .rv-sugg-item .hide-sm { display: none; } .rv-sugg-item .btn { padding: 6px 10px; } }

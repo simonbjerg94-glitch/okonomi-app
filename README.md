@@ -16,3 +16,9 @@ Bankimport genkender Lån & Spar Banks `Posteringsdetaljer.csv` (ingen overskrif
 
 Kør lokalt: `python3 -m http.server 8765` i mappen og åbn http://localhost:8765.
 Hosting: upload mappen som den er til en statisk host (GitHub Pages, Netlify, Vercel …). Kræver HTTPS for PWA/offline.
+
+### v3 – gennemsyn af import og læring
+- Hele importen vises før den gemmes: grupperet pr. kategori med antal og total, kategori (og job for indtægter) kan rettes pr. række, flere rækker kan markeres og ændres på én gang, hver række kan medtages/udelades, og dubletter vises som sprunget over.
+- Lærte regler (`rules` i data og i JSON-backup): når du retter kategorien for en forretning under import eller senere, huskes det og går forud for de indbyggede regler. Du kan se og slette dem under Indstillinger → Lærte regler.
+- Faste poster findes automatisk: forretninger der går igen hver måned med omtrent samme beløb (også set op mod tidligere posteringer) foreslås som fast post med ét tryk – uden at lave dubletter af faste poster du allerede har.
+- Udvidet dansk regelsæt for forretninger. Cache `okonomi-v3`.
