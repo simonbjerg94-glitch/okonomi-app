@@ -349,3 +349,23 @@ table.tbl td.r, table.tbl th.r { text-align: right; font-variant-numeric: tabula
 @media (min-width: 1200px) { .goals { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 380px) { .kpi .value { font-size: 18px; } .month-picker span { min-width: 100px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+/* Jobs */
+.tabs { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 10px; margin-bottom: 6px; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tabs .chip { white-space: nowrap; text-decoration: none; color: var(--text); flex-shrink: 0; background: var(--card); border-color: var(--border); }
+.tabs .chip.on { border-color: var(--accent-1); background: rgba(124,92,255,.18); }
+.jobs-grid { grid-template-columns: 1fr; }
+.job-card { text-decoration: none; color: var(--text); transition: transform .15s var(--ease), border-color .2s; }
+.job-card:hover { transform: translateY(-2px); border-color: rgba(124,92,255,.4); }
+.job-card .goal-head { display: flex; align-items: center; gap: 12px; }
+.job-card .big { font-size: 20px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+@media (min-width: 640px) { .jobs-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1440px) { .jobs-grid { grid-template-columns: repeat(4, 1fr); } }
+/* Import */
+.banner.ok { background: rgba(34,211,154,.12); border-color: rgba(34,211,154,.35); }
+details.map summary, details.tip summary { cursor: pointer; font-weight: 600; font-size: 13.5px; color: var(--muted); padding: 6px 0; }
+details.map { margin-bottom: 10px; }
+details.tip { margin-top: 14px; background: var(--input); border-radius: 12px; padding: 6px 14px; }
+details.tip ol { margin: 6px 0 8px; padding-left: 20px; font-size: 13px; line-height: 1.6; }
+details.tip p { font-size: 12.5px; color: var(--muted); margin: 0 0 8px; }

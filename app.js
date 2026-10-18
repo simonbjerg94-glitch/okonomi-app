@@ -44,6 +44,7 @@ const COLORS = ['#7c5cff', '#00c2ff', '#22d39a', '#ffb547', '#ff6b8b', '#f472b6'
 const DEFAULT_CATEGORIES = [
   { id: 'c-lon', name: 'Løn', emoji: '💼', color: '#22d39a', type: 'income' },
   { id: 'c-pt', name: 'Personlig træning', emoji: '🏋️', color: '#00c2ff', type: 'income', isPT: true },
+  { id: 'c-udlejning', name: 'Udlejning', emoji: '🏡', color: '#ff6b8b', type: 'income' },
   { id: 'c-indt-andet', name: 'Anden indtægt', emoji: '💰', color: '#facc15', type: 'income' },
   { id: 'c-bolig', name: 'Bolig', emoji: '🏠', color: '#7c5cff', type: 'expense' },
   { id: 'c-el', name: 'El & varme', emoji: '⚡', color: '#ffb547', type: 'expense' },
@@ -59,8 +60,17 @@ const DEFAULT_CATEGORIES = [
   { id: 'c-fritid', name: 'Fritid & oplevelser', emoji: '🎉', color: '#ff6b8b', type: 'expense' },
   { id: 'c-andet', name: 'Andet', emoji: '📦', color: '#64748b', type: 'expense' }
 ];
+const JOB_KINDS = { ansat: 'Lønansættelse', selvstaendig: 'Selvstændig / freelance', udlejning: 'Udlejning / sideindkomst' };
+const DEFAULT_JOBS = [
+  { id: 'job-artrose', name: 'Artrose Fys', emoji: '🩺', color: '#22d39a', kind: 'ansat', role: 'Fysioterapeut', categoryId: 'c-lon', taxRate: null },
+  { id: 'job-pt', name: 'Personlig træning', emoji: '🏋️', color: '#00c2ff', kind: 'selvstaendig', role: 'Privat personlig træner', categoryId: 'c-pt', taxRate: 40 },
+  { id: 'job-handicap', name: 'Handicapformidlingen', emoji: '♿', color: '#a78bfa', kind: 'ansat', role: 'Lønansættelse', categoryId: 'c-lon', taxRate: null },
+  { id: 'job-airbnb', name: 'Airbnb', emoji: '🏡', color: '#ff6b8b', kind: 'udlejning', role: 'Udlejning af bolig', categoryId: 'c-udlejning', taxRate: 40 }
+];
+const clone = o => JSON.parse(JSON.stringify(o));
 const freshState = () => ({
-  version: 1,
+  version: 2,
+  jobs: clone(DEFAULT_JOBS),
   settings: { theme: document.documentElement.dataset.theme || 'dark', ptTaxRate: 40, name: 'Simon', subSort: 'amount-desc' },
   categories: JSON.parse(JSON.stringify(DEFAULT_CATEGORIES)),
   transactions: [], recurring: [], goals: [], isExample: false
@@ -71,6 +81,30 @@ function load() {
   if (!S || !Array.isArray(S.categories)) S = freshState();
   S.settings = Object.assign({ theme: 'dark', ptTaxRate: 40, name: 'Simon', subSort: 'amount-desc' }, S.settings || {});
   ['transactions', 'recurring', 'goals'].forEach(k => { if (!Array.isArray(S[k])) S[k] = []; });
+  if (migrate()) save();
+}
+/* Migrering af ældre data (v1 -> v2: jobs). Sletter aldrig noget. */
+function migrate() {
+  let changed = false;
+  if (!S.categories.some(c => c.id === 'c-udlejning')) {
+    const i = S.categories.findIndex(c => c.id === 'c-indt-andet');
+    S.categories.splice(i >= 0 ? i : S.categories.length, 0, clone(DEFAULT_CATEGORIES.find(c => c.id === 'c-udlejning')));
+    changed = true;
+  }
+  if (!Array.isArray(S.jobs)) {
+    S.jobs = clone(DEFAULT_JOBS);
+    const pt = S.jobs.find(j => j.id === 'job-pt');
+    if (S.settings.ptTaxRate != null && !isNaN(Number(S.settings.ptTaxRate))) pt.taxRate = Number(S.settings.ptTaxRate);
+    const ptCats = S.categories.filter(c => c.isPT || c.id === 'c-pt').map(c => c.id);
+    for (const t of [...S.transactions, ...S.recurring]) {
+      if (t.type !== 'income' || t.jobId) continue;
+      if (t.categoryId === 'c-lon') t.jobId = 'job-artrose';
+      else if (ptCats.includes(t.categoryId)) t.jobId = 'job-pt';
+    }
+    changed = true;
+  }
+  if (S.version !== 2) { S.version = 2; changed = true; }
+  return changed;
 }
 function save() {
   try { localStorage.setItem(KEY, JSON.stringify(S)); }
@@ -90,7 +124,7 @@ function applyRecurring() {
     for (let m = r.startMonth; m <= end; m = addMonths(m, 1)) {
       if (r.skipped.includes(m)) continue;
       if (S.transactions.some(t => t.recurringId === r.id && t.date.startsWith(m))) continue;
-      S.transactions.push({ id: uid(), type: r.type, amount: r.amount, date: `${m}-${pad(Math.min(r.day || 1, dim(m)))}`, categoryId: r.categoryId, note: r.name, recurringId: r.id, example: !!r.example });
+      S.transactions.push({ id: uid(), type: r.type, amount: r.amount, date: `${m}-${pad(Math.min(r.day || 1, dim(m)))}`, categoryId: r.categoryId, note: r.name, recurringId: r.id, example: !!r.example, ...(r.type === 'income' && r.jobId ? { jobId: r.jobId } : {}) });
       added++;
     }
   }
@@ -116,8 +150,18 @@ function avgNet(months = 3) {
   if (!withData.length) return null;
   return sum(withData.map(k => stats(k).net)) / withData.length;
 }
-const ptCatIds = () => S.categories.filter(c => c.isPT).map(c => c.id);
-const ptIncome = key => sum(S.transactions.filter(t => t.type === 'income' && t.date.startsWith(key) && ptCatIds().includes(t.categoryId)).map(t => t.amount));
+const job = id => (S.jobs || []).find(j => j.id === id);
+const hasReserve = j => !!j && j.kind !== 'ansat';
+const jobRate = j => hasReserve(j) ? (Number(j.taxRate) || 0) : 0;
+const jobIncome = (jobId, key) => sum(S.transactions.filter(t => t.type === 'income' && t.date.startsWith(key) && (jobId === 'none' ? !job(t.jobId) : t.jobId === jobId)).map(t => t.amount));
+const reserveFor = key => sum(S.jobs.filter(hasReserve).map(j => jobIncome(j.id, key) * jobRate(j) / 100));
+function jobForCategory(catId, text = '') {
+  const low = text.toLowerCase();
+  const byName = S.jobs.find(j => low && low.includes(j.name.toLowerCase().split(' ')[0]));
+  if (byName) return byName.id;
+  const last = S.transactions.filter(t => t.type === 'income' && t.categoryId === catId && job(t.jobId)).sort((a, b) => b.date.localeCompare(a.date))[0];
+  return last ? last.jobId : (S.jobs.find(j => j.categoryId === catId)?.id || '');
+}
 const goalSaved = g => sum((g.contributions || []).map(c => c.amount));
 
 /* ---------- UI-state ---------- */
@@ -128,18 +172,20 @@ const ROUTES = {
   posteringer: { title: 'Posteringer', ico: '🧾', render: renderPosteringer, month: true },
   budget: { title: 'Budget', ico: '🎯', render: renderBudget, month: true },
   maal: { title: 'Opsparingsmål', short: 'Mål', ico: '🏆', render: renderMaal },
-  pt: { title: 'Personlig træning', ico: '🏋️', render: renderPT, month: true },
+  jobs: { title: 'Mine jobs', ico: '💼', render: renderJobs, month: true },
   abonnementer: { title: 'Abonnementsjæger', ico: '✂️', render: renderAbonnementer },
   indstillinger: { title: 'Indstillinger', ico: '⚙️', render: renderIndstillinger },
   mere: { title: 'Mere', ico: '☰', render: renderMere, hidden: true }
 };
-const route = () => { const r = (location.hash.replace(/^#\/?/, '') || 'overblik').split('?')[0]; return ROUTES[r] ? r : 'overblik'; };
+const routeParts = () => (location.hash.replace(/^#\/?/, '') || 'overblik').split('?')[0].split('/');
+const route = () => { const r = routeParts()[0]; if (r === 'pt') return 'jobs'; return ROUTES[r] ? r : 'overblik'; };
+const jobTab = () => { const p = routeParts(); if (p[0] === 'pt') return job('job-pt') ? 'job-pt' : 'samlet'; return p[1] && job(p[1]) ? p[1] : 'samlet'; };
 
 function renderNav() {
   const r = route();
   $('#sideNav').innerHTML = Object.entries(ROUTES).filter(([, v]) => !v.hidden).map(([k, v]) =>
     `<a class="nav-link ${k === r ? 'active' : ''}" href="#/${k}"><span class="ico">${v.ico}</span>${v.title}</a>`).join('');
-  const moreActive = ['budget', 'pt', 'abonnementer', 'indstillinger', 'mere'].includes(r);
+  const moreActive = ['budget', 'jobs', 'abonnementer', 'indstillinger', 'mere'].includes(r);
   $('#bottomNav').innerHTML = `
     <a href="#/overblik" class="${r === 'overblik' ? 'active' : ''}"><span class="ico">📊</span>Overblik</a>
     <a href="#/posteringer" class="${r === 'posteringer' ? 'active' : ''}"><span class="ico">🧾</span>Poster</a>
@@ -155,7 +201,7 @@ function render() {
   const h = new Date().getHours();
   $('#greeting').textContent = `${h < 5 ? 'God nat' : h < 10 ? 'Godmorgen' : h < 18 ? 'Goddag' : 'Godaften'}, ${S.settings.name || 'Simon'} 👋`;
   $('#monthPicker').classList.toggle('hidden', !def.month);
-  $('#monthLabel').textContent = r === 'pt' ? `${monthLabel(selMonth)}` : monthLabel(selMonth);
+  $('#monthLabel').textContent = monthLabel(selMonth);
   $('#banner').innerHTML = S.isExample ? `<div class="banner"><span>🧪</span><div class="grow"><strong>Du ser eksempeldata.</strong> Alle tal er opdigtede og kun til at prøve appen.</div><button class="btn btn-sm" data-action="clear-example">Fjern eksempeldata</button></div>` : '';
   const view = $('#view');
   view.style.animation = 'none'; void view.offsetWidth; view.style.animation = '';
@@ -188,7 +234,8 @@ function chartDefaults() {
   Chart.defaults.plugins.tooltip.callbacks.label = ctx => ` ${ctx.dataset.label ? ctx.dataset.label + ': ' : ''}${kr(ctx.parsed.y ?? ctx.parsed)}`;
   return true;
 }
-const tickKr = v => Math.abs(v) >= 1000 ? nf0.format(v / 1000) + 't' : nf0.format(v);
+const nf1 = new Intl.NumberFormat('da-DK', { maximumFractionDigits: 1 });
+const tickKr = v => Math.abs(v) >= 1000 ? nf1.format(v / 1000) + 't' : nf0.format(v);
 function mkChart(id, cfg) {
   const el = document.getElementById(id);
   if (!el || !chartDefaults()) return;
@@ -259,8 +306,14 @@ function monthSummary(key) {
   }
   const over = S.categories.filter(c => c.type === 'expense' && c.budget > 0 && (s.byCat[c.id] || 0) > c.budget);
   if (over.length) out.push(`⚠️ Over budget: ${over.map(c => esc(c.name)).join(', ')}.`);
-  const pt = ptIncome(key);
-  if (pt > 0) out.push(`Personlig træning gav ${kr(pt, false)} – med din egen sats på ${S.settings.ptTaxRate} % bør du overveje at sætte ca. ${kr(pt * S.settings.ptTaxRate / 100, false)} til side til skat.`);
+  const jl = S.jobs.map(j => [j, jobIncome(j.id, key)]).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+  if (jl.length) {
+    const tot = sum(jl.map(x => x[1]));
+    let t = `Fra dine ${jl.length > 1 ? jl.length + ' jobs' : 'job'}: ${jl.map(([j, v]) => `${j.emoji} ${esc(j.name)} ${kr(v, false)}${jl.length > 1 ? ` (${pct(v / tot * 100)})` : ''}`).join(', ').replace(/, ([^,]*)$/, ' og $1')}.`;
+    const res = reserveFor(key);
+    if (res > 0) t += ` Med dine egne satser bør du overveje at sætte ca. ${kr(res, false)} til side til skat af selvstændig- og udlejningsindtægt.`;
+    out.push(t);
+  }
   return out;
 }
 function renderOverblik() {
@@ -492,53 +545,171 @@ function goalCard(g, fallback) {
   </div>`;
 }
 
-/* ---------- Visning: Personlig træning ---------- */
-function renderPT() {
-  const year = selMonth.slice(0, 4);
-  const rate = Number(S.settings.ptTaxRate) || 0;
-  const keys = Array.from({ length: 12 }, (_, i) => `${year}-${pad(i + 1)}`);
-  const vals = keys.map(ptIncome);
-  const upto = Number(selMonth.slice(5));
-  const prevVals = Array.from({ length: upto }, (_, i) => ptIncome(`${Number(year) - 1}-${pad(i + 1)}`));
-  const prevYear = prevVals.filter(v => v > 0).length >= Math.ceil(upto / 2) ? sum(prevVals) : 0;
-  const ytdUpto = sum(vals.slice(0, upto));
-  const ytd = sum(vals), thisM = ptIncome(selMonth);
-  const activeMonths = vals.filter(v => v > 0).length;
-  const sessions = S.transactions.filter(t => t.type === 'income' && t.date.startsWith(year) && ptCatIds().includes(t.categoryId)).length;
-  afterRender.pt = () => mkChart('chPT', {
-    type: 'bar',
-    data: { labels: MSHORT, datasets: [
-      { label: 'Til dig', data: vals.map(v => v * (1 - rate / 100)), backgroundColor: '#00c2ff', borderRadius: 6, stack: 's', maxBarThickness: 26 },
-      { label: 'Skat-reserve', data: vals.map(v => v * rate / 100), backgroundColor: '#7c5cff88', borderRadius: 6, stack: 's', maxBarThickness: 26 }
-    ] },
-    options: { maintainAspectRatio: false, plugins: { legend: { position: 'top', align: 'end', labels: { usePointStyle: true, boxWidth: 8 } } }, scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true, ticks: { callback: tickKr } } } }
-  });
-  if (!ptCatIds().length) return `<div class="card empty"><div class="emoji">🏋️</div><h2>Ingen PT-kategori</h2><p>Markér en indtægtskategori som "personlig træning" under Indstillinger.</p></div>`;
+/* ---------- Visning: Mine jobs (samlet + pr. job) ---------- */
+function jobChipsHTML(sel) {
+  return `<div class="chips" data-chips="job">${S.jobs.map(j => `<button type="button" class="chip ${j.id === sel ? 'on' : ''}" data-val="${j.id}">${j.emoji} ${esc(j.name)}</button>`).join('')}<button type="button" class="chip ${!sel || !job(sel) ? 'on' : ''}" data-val="">Intet job</button></div>`;
+}
+const kindPill = j => `<span class="pill ${j.kind === 'ansat' ? '' : 'accent'}">${JOB_KINDS[j.kind] || j.kind}</span>`;
+const yearKeys = year => Array.from({ length: 12 }, (_, i) => `${year}-${pad(i + 1)}`);
+function renderJobs() {
+  const tab = jobTab();
+  const tabs = `<div class="tabs">${[['samlet', '📊', 'Samlet'], ...S.jobs.map(j => [j.id, j.emoji, j.name])].map(([id, e, n]) =>
+    `<a class="chip ${tab === id ? 'on' : ''}" href="#/jobs${id === 'samlet' ? '' : '/' + id}">${e} ${esc(n)}</a>`).join('')}<button type="button" class="chip" data-action="add-job">＋ Nyt job</button></div>`;
+  if (!S.jobs.length) return tabs + `<div class="card empty"><div class="emoji">💼</div><h2>Ingen jobs endnu</h2><p>Opret dine jobs, så kan du se indtægten fra hvert job og samlet.</p><button class="btn btn-primary" data-action="add-job">＋ Opret job</button></div>`;
+  return tabs + (tab === 'samlet' ? renderJobsSamlet() : renderJobDetail(job(tab)));
+}
+const reserveNote = `<div class="disclaimer">ℹ️ Skattereserven er et <strong>estimat ud fra de procentsatser, du selv har sat</strong> for dine selvstændige jobs og din udlejning – ikke skatterådgivning. Din faktiske skat afhænger af bl.a. kommuneskat, fradrag, bundfradrag ved udlejning og topskat. Tjek din forskudsopgørelse på skat.dk eller spørg en revisor.</div>`;
+function renderJobsSamlet() {
+  const year = selMonth.slice(0, 4), upto = Number(selMonth.slice(5)), mName = MONTHS[upto - 1];
+  const yKeys = yearKeys(year);
+  const last12 = Array.from({ length: 12 }, (_, i) => addMonths(selMonth, i - 11));
+  const rows = S.jobs.map(j => { const vals = yKeys.map(k => jobIncome(j.id, k)); return { j, vals, y: sum(vals), m: jobIncome(j.id, selMonth) }; });
+  const totalY = sum(rows.map(r => r.y)), totalM = sum(rows.map(r => r.m));
+  const prevM = sum(S.jobs.map(j => jobIncome(j.id, addMonths(selMonth, -1))));
+  const toDate = sum(rows.map(r => sum(r.vals.slice(0, upto))));
+  const monthsWith = yKeys.slice(0, upto).filter(k => S.jobs.some(j => jobIncome(j.id, k) > 0)).length;
+  const reserveY = sum(rows.filter(r => hasReserve(r.j)).map(r => r.y * jobRate(r.j) / 100));
+  const reserveM = reserveFor(selMonth);
+  const noneY = sum(yKeys.map(k => jobIncome('none', k)));
+  const withY = rows.filter(r => r.y > 0).sort((a, b) => b.y - a.y);
+  afterRender.jobs = () => {
+    mkChart('chJobsBar', {
+      type: 'bar',
+      data: { labels: last12.map(monthShort), datasets: S.jobs.map(j => ({ label: j.name, data: last12.map(k => jobIncome(j.id, k)), backgroundColor: j.color, borderRadius: 4, stack: 's', maxBarThickness: 26 })) },
+      options: { maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, padding: 14 } } }, scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true, ticks: { callback: tickKr } } } }
+    });
+    if (withY.length) mkChart('chJobsDough', {
+      type: 'doughnut', plugins: [centerText],
+      data: { labels: withY.map(r => r.j.name), datasets: [{ data: withY.map(r => r.y), backgroundColor: withY.map(r => r.j.color), borderWidth: 0, spacing: 2, borderRadius: 6, hoverOffset: 8 }] },
+      options: { maintainAspectRatio: false, cutout: '70%', plugins: { legend: { display: false }, centerText: { title: kr(totalY, false), sub: year }, tooltip: { callbacks: { label: c => ` ${kr(c.parsed)} (${pct(c.parsed / totalY * 100)})` } } } }
+    });
+  };
   return `
   <div class="grid kpis">
-    <div class="card kpi hero"><div class="label">PT-indtægt ${year}</div><div class="value">${kr(ytd, false)}</div><div class="sub">${prevYear ? `${deltaPill(ytdUpto, prevYear)} vs. samme periode ${Number(year) - 1}` : `${sessions} betalinger · ${activeMonths} måneder med indtægt`}</div></div>
-    <div class="card kpi"><div class="label">${MONTHS[Number(selMonth.slice(5)) - 1]}</div><div class="value">${kr(thisM, false)}</div><div class="sub">reservér ${kr(thisM * rate / 100, false)}</div></div>
-    <div class="card kpi"><div class="label">🏦 Sæt til side (${rate} %)</div><div class="value warn">${kr(ytd * rate / 100, false)}</div><div class="sub">for hele ${year}</div></div>
-    <div class="card kpi"><div class="label">Gns. pr. aktiv md.</div><div class="value">${kr(activeMonths ? ytd / activeMonths : 0, false)}</div><div class="sub">${kr(ytd * (1 - rate / 100), false)} efter reserve</div></div>
+    <div class="card kpi hero"><div class="label">Samlet indtægt fra jobs · ${year}</div><div class="value">${kr(totalY, false)}</div><div class="sub">${S.jobs.length} jobs · ${kr(totalM, false)} i ${mName}</div></div>
+    <div class="card kpi"><div class="label">💼 ${mName[0].toUpperCase() + mName.slice(1)} i alt</div><div class="value">${kr(totalM, false)}</div><div class="sub">${deltaPill(totalM, prevM)} vs. sidste md.</div></div>
+    <div class="card kpi"><div class="label">📅 Gns. pr. måned</div><div class="value">${kr(monthsWith ? toDate / monthsWith : 0, false)}</div><div class="sub">${monthsWith} måneder i ${year}</div></div>
+    <div class="card kpi"><div class="label">🏦 Skattereserve i alt</div><div class="value warn">${kr(reserveY, false)}</div><div class="sub">${kr(reserveM, false)} i ${mName} · egne satser</div></div>
+  </div>
+  <div class="grid cols-2-1 section">
+    <div class="card"><h2>Indtægt pr. job <small>seneste 12 måneder</small></h2><div class="chart-box tall"><canvas id="chJobsBar"></canvas></div></div>
+    <div class="card"><h2>Fordeling <small>${year}</small></h2>
+      ${withY.length ? `<div class="chart-box small"><canvas id="chJobsDough"></canvas></div>
+      <div class="list" style="margin-top:8px">${withY.map(r => `<div class="row"><span style="width:10px;height:10px;border-radius:50%;background:${r.j.color};flex-shrink:0"></span><div class="main-col"><div class="title" style="font-size:13.5px">${r.j.emoji} ${esc(r.j.name)}</div></div><div class="amt" style="font-size:13.5px">${pct(r.y / totalY * 100)}</div></div>`).join('')}</div>` : `<p class="muted">Ingen jobindtægter i ${year} endnu.</p>`}
+    </div>
+  </div>
+  <div class="grid jobs-grid section">${rows.map(r => `
+    <a class="card job-card" href="#/jobs/${r.j.id}">
+      <div class="goal-head"><div class="avatar" style="background:${r.j.color}26">${r.j.emoji}</div>
+        <div class="main-col" style="min-width:0"><div class="title" style="font-weight:650">${esc(r.j.name)}</div><div style="margin-top:3px">${kindPill(r.j)}</div></div><span class="muted">›</span></div>
+      <div class="big" style="margin-top:12px">${kr(r.y, false)} <span class="muted" style="font-size:13px;font-weight:500">i ${year}</span></div>
+      <div class="progress" style="height:6px"><span style="width:${totalY ? r.y / totalY * 100 : 0}%;background:${r.j.color}"></span></div>
+      <div class="goal-stats">
+        <div class="stat"><div class="l">${mName}</div><div class="v">${kr(r.m, false)}</div></div>
+        <div class="stat"><div class="l">${hasReserve(r.j) ? `Reserve (${jobRate(r.j)} %)` : 'Andel'}</div><div class="v ${hasReserve(r.j) ? 'warn' : ''}">${hasReserve(r.j) ? kr(r.y * jobRate(r.j) / 100, false) : pct(totalY ? r.y / totalY * 100 : 0)}</div></div>
+      </div>
+    </a>`).join('')}</div>
+  <div class="card section"><h2>Måned for måned <small>${year}</small></h2><div class="scroll-x"><table class="tbl">
+    <thead><tr><th>Måned</th>${S.jobs.map(j => `<th class="r" title="${esc(j.name)}">${j.emoji} ${esc(j.name)}</th>`).join('')}<th class="r">I alt</th><th class="r">Reserve</th></tr></thead>
+    <tbody>${yKeys.map((k, i) => { const t = sum(rows.map(r => r.vals[i])); return `<tr${k === selMonth ? ' style="font-weight:700"' : ''}><td style="text-transform:capitalize">${MONTHS[i]}</td>${rows.map(r => `<td class="r">${r.vals[i] ? kr(r.vals[i], false) : '–'}</td>`).join('')}<td class="r">${t ? kr(t, false) : '–'}</td><td class="r">${reserveFor(k) ? kr(reserveFor(k), false) : '–'}</td></tr>`; }).join('')}
+    <tr style="font-weight:700"><td>I alt</td>${rows.map(r => `<td class="r">${kr(r.y, false)}</td>`).join('')}<td class="r">${kr(totalY, false)}</td><td class="r">${kr(reserveY, false)}</td></tr></tbody></table></div></div>
+  ${noneY > 0 ? `<p class="muted small" style="margin:12px 4px">＋ ${kr(noneY, false)} anden indtægt i ${year} uden tilknyttet job (fx salg eller gaver) – ikke med i tallene ovenfor.</p>` : ''}
+  <div class="section">${reserveNote}</div>`;
+}
+function renderJobDetail(j) {
+  const year = selMonth.slice(0, 4), upto = Number(selMonth.slice(5)), mName = MONTHS[upto - 1];
+  const res = hasReserve(j), rate = jobRate(j);
+  const keys = yearKeys(year);
+  const vals = keys.map(k => jobIncome(j.id, k));
+  const prevVals = Array.from({ length: upto }, (_, i) => jobIncome(j.id, `${Number(year) - 1}-${pad(i + 1)}`));
+  const prevYear = prevVals.filter(v => v > 0).length >= Math.ceil(upto / 2) ? sum(prevVals) : 0;
+  const ytd = sum(vals), ytdUpto = sum(vals.slice(0, upto)), thisM = jobIncome(j.id, selMonth);
+  const activeMonths = vals.filter(v => v > 0).length;
+  const payments = S.transactions.filter(t => t.type === 'income' && t.jobId === j.id && t.date.startsWith(year)).length;
+  const best = vals.reduce((bi, v, i) => v > vals[bi] ? i : bi, 0);
+  const allTotal = sum(S.jobs.map(x => sum(keys.map(k => jobIncome(x.id, k)))));
+  afterRender.jobs = () => mkChart('chJob', {
+    type: 'bar',
+    data: { labels: MSHORT, datasets: res ? [
+      { label: 'Til dig', data: vals.map(v => v * (1 - rate / 100)), backgroundColor: j.color, borderRadius: 6, stack: 's', maxBarThickness: 26 },
+      { label: 'Skattereserve', data: vals.map(v => v * rate / 100), backgroundColor: '#7c5cff88', borderRadius: 6, stack: 's', maxBarThickness: 26 }
+    ] : [{ label: 'Indtægt', data: vals, backgroundColor: j.color, borderRadius: 6, maxBarThickness: 26 }] },
+    options: { maintainAspectRatio: false, plugins: { legend: { display: res, position: 'top', align: 'end', labels: { usePointStyle: true, boxWidth: 8 } } }, scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true, ticks: { callback: tickKr } } } }
+  });
+  const recent = S.transactions.filter(t => t.type === 'income' && t.jobId === j.id).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
+  return `
+  <div class="grid kpis">
+    <div class="card kpi hero" style="background:linear-gradient(135deg, ${j.color}, #7c5cff)"><div class="label">${j.emoji} ${esc(j.name)} · ${year}</div><div class="value">${kr(ytd, false)}</div><div class="sub">${prevYear ? `${deltaPill(ytdUpto, prevYear)} vs. samme periode ${Number(year) - 1}` : `${payments} betalinger · ${activeMonths} måneder med indtægt`}</div></div>
+    <div class="card kpi"><div class="label">${mName[0].toUpperCase() + mName.slice(1)}</div><div class="value">${kr(thisM, false)}</div><div class="sub">${res ? `reservér ${kr(thisM * rate / 100, false)}` : `${pct(allTotal ? ytd / allTotal * 100 : 0)} af alle jobs i ${year}`}</div></div>
+    ${res ? `<div class="card kpi"><div class="label">🏦 Sæt til side (${rate} %)</div><div class="value warn">${kr(ytd * rate / 100, false)}</div><div class="sub">for hele ${year}</div></div>`
+      : `<div class="card kpi"><div class="label">🏆 Bedste måned</div><div class="value">${ytd ? kr(vals[best], false) : '–'}</div><div class="sub">${ytd ? MONTHS[best] : 'ingen data endnu'}</div></div>`}
+    <div class="card kpi"><div class="label">Gns. pr. aktiv md.</div><div class="value">${kr(activeMonths ? ytd / activeMonths : 0, false)}</div><div class="sub">${res ? `${kr(ytd * (1 - rate / 100), false)} efter reserve` : `${activeMonths} måneder i ${year}`}</div></div>
   </div>
   <div class="grid cols-2 section">
-    <div class="card"><h2>PT-indtægt pr. måned <small>${year}</small></h2><div class="chart-box tall"><canvas id="chPT"></canvas></div></div>
+    <div class="card"><h2>Indtægt pr. måned <small>${year}</small></h2><div class="chart-box tall"><canvas id="chJob"></canvas></div></div>
     <div class="card">
-      <h2>Din skat-reserve</h2>
-      <div class="field"><label for="ptRate">Procentsats, du selv vælger at sætte til side</label>
-        <div style="display:flex;gap:12px;align-items:center"><input type="range" id="ptRate" min="0" max="60" step="1" value="${rate}" style="flex:1;accent-color:#7c5cff"><input class="input" id="ptRateNum" type="number" min="0" max="100" value="${rate}" style="width:84px;text-align:center"><span>%</span></div></div>
-      <div class="disclaimer">ℹ️ Dette er et <strong>estimat ud fra den procentsats, du selv har sat</strong> – ikke skatterådgivning. Din faktiske skat afhænger af bl.a. kommuneskat, fradrag og topskat. Tjek din forskudsopgørelse på skat.dk eller spørg en revisor.</div>
+      ${res ? `<h2>Din skattereserve <button class="btn btn-sm" data-action="edit-job" data-id="${j.id}">✏️ Rediger job</button></h2>
+      <div class="field"><label for="jobRate">Procentsats, du selv vælger at sætte til side</label>
+        <div style="display:flex;gap:12px;align-items:center"><input type="range" id="jobRate" data-id="${j.id}" min="0" max="60" step="1" value="${rate}" style="flex:1;accent-color:#7c5cff"><input class="input" id="jobRateNum" data-id="${j.id}" type="number" min="0" max="100" value="${rate}" style="width:84px;text-align:center"><span>%</span></div></div>
+      ${reserveNote}
       <div class="list" style="margin-top:12px">
         <div class="row"><div class="main-col"><div class="title">Indtægt i ${year}</div></div><div class="amt">${kr(ytd)}</div></div>
         <div class="row"><div class="main-col"><div class="title">Reserve (${rate} %)</div></div><div class="amt warn">−${kr(ytd * rate / 100)}</div></div>
         <div class="row"><div class="main-col"><div class="title">Til dig efter reserve</div></div><div class="amt pos">${kr(ytd * (1 - rate / 100))}</div></div>
+      </div>` : `<h2>Om jobbet <button class="btn btn-sm" data-action="edit-job" data-id="${j.id}">✏️ Rediger job</button></h2>
+      <div class="list">
+        <div class="row"><div class="main-col"><div class="title">Type</div></div><div class="amt">${kindPill(j)}</div></div>
+        ${j.role ? `<div class="row"><div class="main-col"><div class="title">Rolle</div></div><div class="amt">${esc(j.role)}</div></div>` : ''}
+        <div class="row"><div class="main-col"><div class="title">Kategori</div></div><div class="amt">${cat(j.categoryId).emoji} ${esc(cat(j.categoryId).name)}</div></div>
+        <div class="row"><div class="main-col"><div class="title">Udbetalinger i ${year}</div></div><div class="amt">${payments}</div></div>
       </div>
+      <p class="muted small">Lønindkomst er normalt allerede beskattet via dit skattekort (A-skat), så der beregnes ingen reserve for dette job.</p>`}
+      ${recent.length ? `<h3 style="margin:16px 0 4px;font-size:14px">Seneste indbetalinger</h3><div class="list">${recent.map(txRow).join('')}</div>` : ''}
     </div>
   </div>
   <div class="card section"><h2>Måned for måned <small>${year}</small></h2><div class="scroll-x"><table class="tbl">
-    <thead><tr><th>Måned</th><th class="r">Indtægt</th><th class="r">Reserve</th><th class="r">Til dig</th></tr></thead>
-    <tbody>${keys.map((k, i) => `<tr${k === selMonth ? ' style="font-weight:700"' : ''}><td style="text-transform:capitalize">${MONTHS[i]}</td><td class="r">${vals[i] ? kr(vals[i]) : '–'}</td><td class="r">${vals[i] ? kr(vals[i] * rate / 100) : '–'}</td><td class="r">${vals[i] ? kr(vals[i] * (1 - rate / 100)) : '–'}</td></tr>`).join('')}
-    <tr style="font-weight:700"><td>I alt</td><td class="r">${kr(ytd)}</td><td class="r">${kr(ytd * rate / 100)}</td><td class="r">${kr(ytd * (1 - rate / 100))}</td></tr></tbody></table></div></div>`;
+    <thead><tr><th>Måned</th><th class="r">Indtægt</th>${res ? '<th class="r">Reserve</th><th class="r">Til dig</th>' : ''}</tr></thead>
+    <tbody>${keys.map((k, i) => `<tr${k === selMonth ? ' style="font-weight:700"' : ''}><td style="text-transform:capitalize">${MONTHS[i]}</td><td class="r">${vals[i] ? kr(vals[i]) : '–'}</td>${res ? `<td class="r">${vals[i] ? kr(vals[i] * rate / 100) : '–'}</td><td class="r">${vals[i] ? kr(vals[i] * (1 - rate / 100)) : '–'}</td>` : ''}</tr>`).join('')}
+    <tr style="font-weight:700"><td>I alt</td><td class="r">${kr(ytd)}</td>${res ? `<td class="r">${kr(ytd * rate / 100)}</td><td class="r">${kr(ytd * (1 - rate / 100))}</td>` : ''}</tr></tbody></table></div></div>`;
+}
+
+/* Job-formular */
+const JOB_EMOJI = ['🩺', '🏋️', '♿', '🏡', '💼', '🏥', '🧑‍🏫', '🚴', '💻', '🎸', '📦', '🧾'];
+function openJobModal(j) {
+  const isNew = !j;
+  const x = j ? { ...j } : { name: '', emoji: '💼', color: COLORS[(S.jobs.length + 2) % COLORS.length], kind: 'ansat', role: '', categoryId: 'c-lon', taxRate: 40 };
+  const used = j ? S.transactions.filter(t => t.jobId === j.id).length : 0;
+  openSheet(`${sheetHead(isNew ? 'Nyt job' : 'Rediger job')}
+    <div class="field"><label for="jName">Navn</label><input class="input" id="jName" value="${esc(x.name)}" placeholder="Fx Artrose Fys" autofocus></div>
+    <div class="field"><span class="lbl">Ikon</span><div class="chips" data-chips="jemoji">${JOB_EMOJI.map(e => `<button type="button" class="chip ${e === x.emoji ? 'on' : ''}" data-val="${e}" style="font-size:18px;padding:6px 10px">${e}</button>`).join('')}</div></div>
+    <div class="field"><span class="lbl">Farve</span><div class="chips" id="jColors">${COLORS.map(col => `<span class="color-dot ${col === x.color ? 'on' : ''}" data-c="${col}" style="background:${col}"></span>`).join('')}</div></div>
+    <div class="field-row">
+      <div class="field"><label for="jKind">Type</label><select class="input" id="jKind">${Object.entries(JOB_KINDS).map(([k, l]) => `<option value="${k}" ${k === x.kind ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+      <div class="field"><label for="jCat">Standardkategori</label><select class="input" id="jCat">${catsOf('income').map(c => `<option value="${c.id}" ${c.id === x.categoryId ? 'selected' : ''}>${c.emoji} ${esc(c.name)}</option>`).join('')}</select></div>
+    </div>
+    <div class="field"><label for="jRole">Rolle / beskrivelse <span class="muted">(valgfri)</span></label><input class="input" id="jRole" value="${esc(x.role || '')}" placeholder="Fx Fysioterapeut"></div>
+    <div class="field" id="jRateField" style="${x.kind === 'ansat' ? 'display:none' : ''}"><label for="jRateIn">Skattereserve i % <span class="muted">(dit eget estimat)</span></label><input class="input" id="jRateIn" type="number" min="0" max="100" value="${x.taxRate ?? 40}"></div>
+    <div class="btn-row"><button class="btn btn-primary" style="flex:1" id="jSave">Gem job</button>${isNew ? '' : '<button class="btn btn-danger" id="jDel">Slet</button>'}</div>
+    ${used ? `<p class="muted small">${used} indtægter er knyttet til jobbet. Sletter du det, bevares indtægterne – de bliver bare ikke knyttet til et job.</p>` : ''}`, sheet => {
+    let emoji = x.emoji, color = x.color;
+    bindChips(sheet, 'jemoji', v => emoji = v);
+    $('#jColors', sheet).addEventListener('click', e => { const d = e.target.closest('.color-dot'); if (!d) return; color = d.dataset.c; $$('.color-dot', sheet).forEach(q => q.classList.toggle('on', q === d)); });
+    $('#jKind', sheet).addEventListener('change', e => { $('#jRateField', sheet).style.display = e.target.value === 'ansat' ? 'none' : ''; });
+    $('#jSave', sheet).onclick = () => {
+      const name = $('#jName', sheet).value.trim(); if (!name) { toast('Giv jobbet et navn'); return; }
+      const kind = $('#jKind', sheet).value;
+      const data = { name, emoji, color, kind, role: $('#jRole', sheet).value.trim(), categoryId: $('#jCat', sheet).value, taxRate: kind === 'ansat' ? null : Math.max(0, Math.min(100, Number($('#jRateIn', sheet).value) || 0)) };
+      let id = j?.id;
+      if (isNew) { id = 'job-' + uid(); S.jobs.push({ id, ...data }); } else Object.assign(j, data);
+      save(); closeSheet(); location.hash = '#/jobs/' + id; render(); toast('Job gemt ✓');
+    };
+    if (!isNew) $('#jDel', sheet).onclick = () => {
+      if (!confirm(`Slet jobbet “${j.name}”? Indtægterne bevares.`)) return;
+      S.transactions.forEach(t => { if (t.jobId === j.id) delete t.jobId; });
+      S.recurring.forEach(r => { if (r.jobId === j.id) delete r.jobId; });
+      S.jobs = S.jobs.filter(q => q.id !== j.id); save(); closeSheet(); location.hash = '#/jobs'; render(); toast('Job slettet');
+    };
+  });
 }
 
 /* ---------- Visning: Abonnementsjæger ---------- */
@@ -586,11 +757,11 @@ function renderAbonnementer() {
 
 /* ---------- Visning: Mere & Indstillinger ---------- */
 function renderMere() {
-  const tiles = [['budget', '🎯', 'Budget', 'Loft pr. kategori'], ['pt', '🏋️', 'Personlig træning', 'Indtægt & skat-reserve'], ['abonnementer', '✂️', 'Abonnementsjæger', 'Faste poster & besparelser'], ['indstillinger', '⚙️', 'Indstillinger', 'Kategorier, backup, import']];
+  const tiles = [['budget', '🎯', 'Budget', 'Loft pr. kategori'], ['jobs', '💼', 'Mine jobs', 'Samlet & pr. job'], ['abonnementer', '✂️', 'Abonnementsjæger', 'Faste poster & besparelser'], ['indstillinger', '⚙️', 'Indstillinger', 'Kategorier, backup, import']];
   return `<div class="more-grid">${tiles.map(([r, e, t, d]) => `<a class="card more-tile" href="#/${r}"><div class="avatar">${e}</div><strong>${t}</strong><span>${d}</span></a>`).join('')}</div>`;
 }
 function renderIndstillinger() {
-  const catRow = c => `<div class="row click" data-action="edit-cat" data-id="${c.id}"><div class="avatar" style="background:${c.color}22">${c.emoji}</div><div class="main-col"><div class="title">${esc(c.name)}</div><div class="meta">${c.budget > 0 ? 'Budget ' + kr(c.budget, false) : 'Intet budget'}${c.isPT ? ' · <span class="pill accent">PT</span>' : ''}</div></div><span style="width:14px;height:14px;border-radius:50%;background:${c.color}"></span></div>`;
+  const catRow = c => `<div class="row click" data-action="edit-cat" data-id="${c.id}"><div class="avatar" style="background:${c.color}22">${c.emoji}</div><div class="main-col"><div class="title">${esc(c.name)}</div><div class="meta">${c.budget > 0 ? 'Budget ' + kr(c.budget, false) : 'Intet budget'}</div></div><span style="width:14px;height:14px;border-radius:50%;background:${c.color}"></span></div>`;
   return `
   <div class="grid cols-2">
     <div class="card"><h2>Udgiftskategorier <button class="btn btn-sm" data-action="add-cat" data-type="expense">＋ Ny</button></h2><div class="list">${catsOf('expense').map(catRow).join('')}</div></div>
@@ -613,9 +784,18 @@ function renderIndstillinger() {
       <input type="file" id="jsonFile" accept=".json,application/json" hidden>
     </div>
     <div class="card"><h2>Import fra bank</h2>
-      <p class="muted small">Indlæs et kontoudtog som CSV (fx fra Danske Bank, Nordea, Jyske Bank eller Lunar). Semikolon og komma-decimaler understøttes, og du vælger selv kolonnerne.</p>
-      <button class="btn btn-primary" data-action="import-csv">🏦 Importér kontoudtog (CSV)</button>
-      <input type="file" id="csvFile" accept=".csv,.txt,text/csv" hidden>
+      <p class="muted small">Indlæs et kontoudtog som CSV eller Excel. Eksport fra <strong>Lån & Spar Bank</strong> genkendes automatisk – andre banker (fx Danske Bank, Nordea, Jyske Bank) virker også; der vælger du selv kolonnerne.</p>
+      <button class="btn btn-primary" data-action="import-csv">🏦 Importér kontoudtog (CSV/Excel)</button>
+      <input type="file" id="csvFile" accept=".csv,.txt,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" hidden>
+      <details class="tip"><summary>💡 Sådan henter du posteringer fra Lån & Spar</summary>
+        <ol>
+          <li>Log på netbanken på en computer, og klik på kontoen.</li>
+          <li>Markér de posteringer, du vil have med, i afkrydsningsfeltet til venstre for datoen (det kan være svært at se).</li>
+          <li>Vælg eksport nederst på skærmen, og vælg CSV (eller Excel).</li>
+          <li>Vælg den hentede fil her – den hedder typisk <em>Posteringsdetaljer.csv</em>.</li>
+        </ol>
+        <p>Andre banker: Eksportér posteringer som CSV fra din netbank.</p>
+      </details>
     </div>
   </div>
   <div class="card section"><h2>Eksempeldata & nulstil</h2>
@@ -651,13 +831,14 @@ const pickedChip = (sheet, name) => sheet.querySelector(`[data-chips="${name}"] 
 /* Postering – fuld formular */
 function openTxModal(tx, preset = {}) {
   const isNew = !tx;
-  const t = tx ? { ...tx } : { type: preset.type || 'expense', amount: preset.amount || '', date: selMonth === curMonth() ? todayISO() : `${selMonth}-01`, categoryId: preset.categoryId || null, note: preset.note || '' };
+  const t = tx ? { ...tx } : { type: preset.type || 'expense', amount: preset.amount || '', date: selMonth === curMonth() ? todayISO() : `${selMonth}-01`, categoryId: preset.categoryId || null, note: preset.note || '', jobId: preset.jobId };
   if (!t.categoryId) t.categoryId = t.type === 'expense' ? (recentExpenseCats()[0] || catsOf('expense')[0]?.id) : (S.categories.find(c => c.id === 'c-lon')?.id || catsOf('income')[0]?.id);
   const rec = tx?.recurringId ? S.recurring.find(r => r.id === tx.recurringId) : null;
   openSheet(`${sheetHead(isNew ? 'Ny postering' : 'Rediger postering')}
     <div class="segmented" id="typeSeg"><button type="button" data-t="expense" class="exp ${t.type === 'expense' ? 'on' : ''}">− Udgift</button><button type="button" data-t="income" class="inc ${t.type === 'income' ? 'on' : ''}">＋ Indtægt</button></div>
     <div class="field"><input class="input amount-input" id="fAmount" inputmode="decimal" placeholder="0,00 kr" value="${t.amount !== '' ? nf2.format(t.amount) : ''}" autofocus aria-label="Beløb"></div>
     <div class="field"><span class="lbl">Kategori</span><div id="chipWrap">${chipsHTML(t.type, t.categoryId)}</div></div>
+    <div class="field" id="jobField" style="${t.type === 'income' && S.jobs.length ? '' : 'display:none'}"><span class="lbl">Job</span><div id="jobWrap">${jobChipsHTML(t.jobId ?? (t.type === 'income' ? jobForCategory(t.categoryId) : ''))}</div></div>
     <div class="field-row"><div class="field"><label for="fDate">Dato · <span id="fDateTxt">${fmtDate(t.date)}</span></label><input class="input" type="date" id="fDate" value="${t.date}"></div>
       <div class="field"><label for="fNote">Note</label><input class="input" id="fNote" placeholder="Fx Netto, PT-klient…" value="${esc(t.note)}"></div></div>
     ${isNew ? `<label class="switch"><span>🔁 Gentag hver måned <span class="muted small">(fast post)</span></span><input type="checkbox" id="fRec"></label>` : ''}
@@ -666,14 +847,20 @@ function openTxModal(tx, preset = {}) {
       <button class="btn btn-primary" style="flex:1" id="fSave">${isNew ? 'Gem postering' : 'Gem ændringer'}</button>
       ${isNew ? '' : '<button class="btn btn-danger" id="fDel">Slet</button>'}
     </div>`, sheet => {
-    let type = t.type, catId = t.categoryId;
+    let type = t.type, catId = t.categoryId, jobId = t.jobId ?? (t.type === 'income' ? jobForCategory(t.categoryId) : '');
+    const setJob = v => { jobId = v || ''; $('#jobWrap', sheet).innerHTML = jobChipsHTML(jobId); bindChips(sheet, 'job', x => jobId = x); };
+    const pickCat = v => { catId = v; if (type === 'income') setJob(jobForCategory(v, $('#fNote', sheet).value)); };
     const seg = $('#typeSeg', sheet);
     seg.addEventListener('click', e => {
       const b = e.target.closest('button'); if (!b) return; type = b.dataset.t;
       $$('button', seg).forEach(x => x.classList.toggle('on', x === b));
-      catId = catsOf(type)[0]?.id; $('#chipWrap', sheet).innerHTML = chipsHTML(type, catId); bindChips(sheet, 'cat', v => catId = v);
+      catId = type === 'income' ? (S.categories.find(c => c.id === 'c-lon')?.id || catsOf('income')[0]?.id) : (recentExpenseCats()[0] || catsOf('expense')[0]?.id);
+      $('#chipWrap', sheet).innerHTML = chipsHTML(type, catId); bindChips(sheet, 'cat', pickCat);
+      $('#jobField', sheet).style.display = type === 'income' && S.jobs.length ? '' : 'none';
+      if (type === 'income') setJob(jobForCategory(catId));
     });
-    bindChips(sheet, 'cat', v => catId = v);
+    bindChips(sheet, 'cat', pickCat);
+    bindChips(sheet, 'job', x => jobId = x);
     $('#fDate', sheet).addEventListener('change', e => { $('#fDateTxt', sheet).textContent = fmtDate(e.target.value); });
     $('#fSave', sheet).onclick = () => {
       const amount = Math.abs(parseAmount($('#fAmount', sheet).value));
@@ -681,14 +868,15 @@ function openTxModal(tx, preset = {}) {
       if (!(amount > 0)) { toast('Skriv et beløb større end 0'); $('#fAmount', sheet).focus(); return; }
       if (!date) { toast('Vælg en dato'); return; }
       const note = $('#fNote', sheet).value.trim();
+      const jobPart = type === 'income' && job(jobId) ? { jobId } : {};
       if (isNew) {
         if ($('#fRec', sheet)?.checked) {
-          const r = { id: uid(), type, amount, categoryId: catId, name: note || cat(catId).name, day: Number(date.slice(8)), startMonth: date.slice(0, 7), kind: catId === 'c-abonnement' ? 'abonnement' : 'fast', skipped: [] };
+          const r = { id: uid(), type, amount, categoryId: catId, name: note || cat(catId).name, day: Number(date.slice(8)), startMonth: date.slice(0, 7), kind: catId === 'c-abonnement' ? 'abonnement' : 'fast', skipped: [], ...jobPart };
           S.recurring.push(r);
-          S.transactions.push({ id: uid(), type, amount, date, categoryId: catId, note: r.name, recurringId: r.id });
-        } else S.transactions.push({ id: uid(), type, amount, date, categoryId: catId, note });
-        lastUsed(catId);
-      } else Object.assign(tx, { type, amount, date, categoryId: catId, note });
+          S.transactions.push({ id: uid(), type, amount, date, categoryId: catId, note: r.name, recurringId: r.id, ...jobPart });
+        } else S.transactions.push({ id: uid(), type, amount, date, categoryId: catId, note, ...jobPart });
+        if (type === 'expense') lastUsed(catId);
+      } else { Object.assign(tx, { type, amount, date, categoryId: catId, note }); if (jobPart.jobId) tx.jobId = jobPart.jobId; else delete tx.jobId; }
       save(); closeSheet(); selMonth = date.slice(0, 7); render(); toast(isNew ? 'Postering gemt ✓' : 'Ændringer gemt ✓');
     };
     const del = $('#fDel', sheet);
@@ -709,16 +897,23 @@ function recentExpenseCats() {
 
 /* Hurtig registrering – keypad */
 function openQuickAdd() {
-  let val = '';
+  let val = '', mode = 'expense';
   const cats = recentExpenseCats();
   let catId = cats[0];
-  openSheet(`${sheetHead('⚡ Hurtig udgift')}
+  const lastJob = [...S.transactions].filter(t => t.type === 'income' && job(t.jobId)).sort((a, b) => b.date.localeCompare(a.date))[0]?.jobId;
+  let jobId = lastJob || S.jobs[0]?.id;
+  const chips = () => mode === 'expense'
+    ? cats.map(id => { const c = cat(id); return `<button type="button" class="chip ${id === catId ? 'on' : ''}" data-val="${id}">${c.emoji} ${esc(c.name)}</button>`; }).join('')
+    : S.jobs.map(j => `<button type="button" class="chip ${j.id === jobId ? 'on' : ''}" data-val="${j.id}">${j.emoji} ${esc(j.name)}</button>`).join('');
+  openSheet(`${sheetHead('⚡ Hurtig registrering')}
+    ${S.jobs.length ? `<div class="segmented" id="qaSeg"><button type="button" data-m="expense" class="exp on">− Udgift</button><button type="button" data-m="income" class="inc">＋ Indtægt</button></div>` : ''}
     <div class="qa-amount"><span id="qaVal">0</span><span class="cur">kr</span></div>
-    <div class="qa-sub">${fmtDate(todayISO())} · vælg kategori og gem</div>
-    <div class="chips" data-chips="qa" style="justify-content:center">${cats.map(id => { const c = cat(id); return `<button type="button" class="chip ${id === catId ? 'on' : ''}" data-val="${id}">${c.emoji} ${esc(c.name)}</button>`; }).join('')}</div>
+    <div class="qa-sub" id="qaSub">${fmtDate(todayISO())} · vælg kategori og gem</div>
+    <div class="chips" data-chips="qa" id="qaChips" style="justify-content:center">${chips()}</div>
     <div class="keypad">${['1', '2', '3', '4', '5', '6', '7', '8', '9', ',', '0', '⌫'].map(k => `<button type="button" data-k="${k}">${k}</button>`).join('')}</div>
     <div class="btn-row"><button class="btn" id="qaMore">Flere detaljer</button><button class="btn btn-primary" style="flex:1" id="qaSave">Gem udgift</button></div>`, sheet => {
     const show = () => { $('#qaVal', sheet).textContent = val ? (val.includes(',') ? nf0.format(Math.floor(parseAmount(val) || 0)) + ',' + val.split(',')[1] : nf0.format(parseAmount(val) || 0)) : '0'; };
+    const bind = () => bindChips(sheet, 'qa', v => { if (mode === 'expense') catId = v; else jobId = v; });
     $('.keypad', sheet).addEventListener('click', e => {
       const k = e.target.closest('button')?.dataset.k; if (!k) return;
       if (navigator.vibrate) navigator.vibrate(8);
@@ -727,13 +922,26 @@ function openQuickAdd() {
       else if (val.includes(',') ? val.split(',')[1].length < 2 : val.replace(/^0/, '').length < 7) val = (val === '0' ? '' : val) + k;
       show();
     });
-    bindChips(sheet, 'qa', v => catId = v);
-    $('#qaMore', sheet).onclick = () => { closeSheet(); openTxModal(null, { type: 'expense', amount: parseAmount(val) || '', categoryId: catId }); };
+    $('#qaSeg', sheet)?.addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return; mode = b.dataset.m;
+      $$('#qaSeg button', sheet).forEach(x => x.classList.toggle('on', x === b));
+      $('#qaChips', sheet).innerHTML = chips(); bind();
+      $('#qaSub', sheet).textContent = `${fmtDate(todayISO())} · ${mode === 'expense' ? 'vælg kategori' : 'vælg job'} og gem`;
+      $('#qaSave', sheet).textContent = mode === 'expense' ? 'Gem udgift' : 'Gem indtægt';
+    });
+    bind();
+    $('#qaMore', sheet).onclick = () => { closeSheet(); openTxModal(null, mode === 'expense' ? { type: 'expense', amount: parseAmount(val) || '', categoryId: catId } : { type: 'income', amount: parseAmount(val) || '', categoryId: job(jobId)?.categoryId, jobId }); };
     $('#qaSave', sheet).onclick = () => {
       const amount = parseAmount(val);
       if (!(amount > 0)) { toast('Tast et beløb'); return; }
-      S.transactions.push({ id: uid(), type: 'expense', amount, date: todayISO(), categoryId: catId, note: cat(catId).name });
-      lastUsed(catId); save(); closeSheet(); selMonth = curMonth(); render(); toast(`${cat(catId).emoji} ${kr(amount)} gemt ✓`);
+      if (mode === 'expense') {
+        S.transactions.push({ id: uid(), type: 'expense', amount, date: todayISO(), categoryId: catId, note: cat(catId).name });
+        lastUsed(catId); save(); closeSheet(); selMonth = curMonth(); render(); toast(`${cat(catId).emoji} ${kr(amount)} gemt ✓`);
+      } else {
+        const j = job(jobId); const cid = j && S.categories.some(c => c.id === j.categoryId) ? j.categoryId : (catsOf('income')[0]?.id);
+        S.transactions.push({ id: uid(), type: 'income', amount, date: todayISO(), categoryId: cid, note: j ? j.name : cat(cid).name, ...(j ? { jobId: j.id } : {}) });
+        save(); closeSheet(); selMonth = curMonth(); render(); toast(`${j ? j.emoji : '💰'} +${kr(amount)} gemt ✓`);
+      }
     };
   });
 }
@@ -748,25 +956,27 @@ function openRecModal(r) {
     <div class="field-row"><div class="field"><label for="rAmount">Beløb pr. måned</label><input class="input" id="rAmount" inputmode="decimal" placeholder="0,00" value="${x.amount !== '' ? nf2.format(x.amount) : ''}"></div>
       <div class="field"><label for="rDay">Dag i måneden</label><input class="input" id="rDay" type="number" min="1" max="31" value="${x.day}"></div></div>
     <div class="field"><span class="lbl">Kategori</span><div id="rChipWrap">${chipsHTML(x.type, x.categoryId, 'rcat')}</div></div>
+    <div class="field" id="rJobField" style="${x.type === 'income' ? '' : 'display:none'}"><label for="rJob">Job</label><select class="input" id="rJob"><option value="">Intet job</option>${S.jobs.map(j => `<option value="${j.id}" ${j.id === x.jobId ? 'selected' : ''}>${j.emoji} ${esc(j.name)}</option>`).join('')}</select></div>
     <div class="field-row"><div class="field"><label for="rKind">Type</label><select class="input" id="rKind"><option value="fast" ${x.kind !== 'abonnement' ? 'selected' : ''}>Fast udgift/indtægt</option><option value="abonnement" ${x.kind === 'abonnement' ? 'selected' : ''}>Abonnement</option></select></div>
       <div class="field"><label for="rStart">Start fra måned</label><input class="input" id="rStart" type="month" value="${x.startMonth}"></div></div>
     <p class="muted small">Posten bogføres automatisk hver måned fra startmåneden.</p>
     <div class="btn-row"><button class="btn btn-primary" style="flex:1" id="rSave">Gem</button>
       ${isNew ? '' : `<button class="btn" id="rStop">⏹️ Stop efter denne md.</button><button class="btn btn-danger" id="rDel">Slet</button>`}</div>`, sheet => {
     let type = x.type, catId = x.categoryId;
-    $('#rType', sheet).addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; type = b.dataset.t; $$('#rType button', sheet).forEach(q => q.classList.toggle('on', q === b)); catId = catsOf(type)[0]?.id; $('#rChipWrap', sheet).innerHTML = chipsHTML(type, catId, 'rcat'); bindChips(sheet, 'rcat', v => catId = v); });
+    $('#rType', sheet).addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; type = b.dataset.t; $$('#rType button', sheet).forEach(q => q.classList.toggle('on', q === b)); catId = catsOf(type)[0]?.id; $('#rChipWrap', sheet).innerHTML = chipsHTML(type, catId, 'rcat'); bindChips(sheet, 'rcat', v => catId = v); $('#rJobField', sheet).style.display = type === 'income' ? '' : 'none'; });
     bindChips(sheet, 'rcat', v => catId = v);
     $('#rSave', sheet).onclick = () => {
       const amount = Math.abs(parseAmount($('#rAmount', sheet).value)); const name = $('#rName', sheet).value.trim() || cat(catId).name;
       if (!(amount > 0)) { toast('Skriv et beløb'); return; }
       const day = Math.min(31, Math.max(1, Number($('#rDay', sheet).value) || 1));
       const data = { type, amount, name, day, categoryId: catId, kind: $('#rKind', sheet).value, startMonth: $('#rStart', sheet).value || curMonth() };
-      if (isNew) S.recurring.push({ id: uid(), skipped: [], ...data });
+      const jid = type === 'income' ? $('#rJob', sheet).value : '';
+      if (isNew) S.recurring.push({ id: uid(), skipped: [], ...data, ...(jid ? { jobId: jid } : {}) });
       else {
-        Object.assign(r, data);
+        Object.assign(r, data); if (jid) r.jobId = jid; else delete r.jobId;
         // Opdater indeværende måneds postering, så tallene passer med det samme
         const t = S.transactions.find(t => t.recurringId === r.id && t.date.startsWith(curMonth()));
-        if (t) Object.assign(t, { type, amount, categoryId: catId, note: name, date: `${curMonth()}-${pad(Math.min(day, dim(curMonth())))}` });
+        if (t) { Object.assign(t, { type, amount, categoryId: catId, note: name, date: `${curMonth()}-${pad(Math.min(day, dim(curMonth())))}` }); if (jid) t.jobId = jid; else delete t.jobId; }
         S.transactions = S.transactions.filter(t => t.recurringId !== r.id || t.date.slice(0, 7) >= r.startMonth);
       }
       applyRecurring(); save(); closeSheet(); render(); toast('Fast post gemt ✓');
@@ -849,7 +1059,6 @@ function openCatModal(c, type) {
     <div class="field"><label for="kName">Navn</label><input class="input" id="kName" value="${esc(x.name)}" placeholder="Fx Kæledyr" autofocus></div>
     <div class="field"><span class="lbl">Emoji</span><div class="chips" data-chips="kemoji">${CAT_EMOJI.map(e => `<button type="button" class="chip ${e === x.emoji ? 'on' : ''}" data-val="${e}" style="font-size:18px;padding:6px 10px">${e}</button>`).join('')}</div></div>
     <div class="field"><span class="lbl">Farve</span><div class="chips" id="kColors">${COLORS.map(col => `<span class="color-dot ${col === x.color ? 'on' : ''}" data-c="${col}" style="background:${col}"></span>`).join('')}</div></div>
-    ${x.type === 'income' ? `<label class="switch"><span>🏋️ Tæl som personlig træning <span class="muted small">(PT-oversigt)</span></span><input type="checkbox" id="kPT" ${x.isPT ? 'checked' : ''}></label>` : ''}
     <div class="btn-row"><button class="btn btn-primary" style="flex:1" id="kSave">Gem</button>${isNew ? '' : `<button class="btn btn-danger" id="kDel">Slet</button>`}</div>
     ${used ? `<p class="muted small">Bruges af ${used} posteringer. Sletter du kategorien, flyttes de til “Andet”.</p>` : ''}`, sheet => {
     let emoji = x.emoji, color = x.color;
@@ -857,7 +1066,7 @@ function openCatModal(c, type) {
     $('#kColors', sheet).addEventListener('click', e => { const d = e.target.closest('.color-dot'); if (!d) return; color = d.dataset.c; $$('.color-dot', sheet).forEach(q => q.classList.toggle('on', q === d)); });
     $('#kSave', sheet).onclick = () => {
       const name = $('#kName', sheet).value.trim(); if (!name) { toast('Giv kategorien et navn'); return; }
-      const data = { name, emoji, color }; if (x.type === 'income') data.isPT = $('#kPT', sheet).checked;
+      const data = { name, emoji, color };
       if (isNew) S.categories.push({ id: 'c-' + uid(), type: x.type, ...data }); else Object.assign(c, data);
       save(); closeSheet(); render(); toast('Kategori gemt ✓');
     };
@@ -933,54 +1142,111 @@ const CSV_RULES = [
 ];
 function guessCat(text, type) {
   if (type === 'income') {
-    if (/løn|loen|salary|lønoverførsel/i.test(text)) return 'c-lon';
+    if (/airbnb|udlejning|husleje fra|lejeindtægt/i.test(text) && S.categories.some(c => c.id === 'c-udlejning')) return 'c-udlejning';
+    if (/løn|loen|salary|lønoverførsel|handicapformidling/i.test(text)) return 'c-lon';
     if (/pt|personlig træning|træning|mobilepay/i.test(text) && S.categories.some(c => c.id === 'c-pt')) return 'c-pt';
     return S.categories.find(c => c.id === 'c-indt-andet')?.id || catsOf('income')[0].id;
   }
   for (const [re, id] of CSV_RULES) if (re.test(text) && S.categories.some(c => c.id === id)) return id;
   return S.categories.find(c => c.id === 'c-andet')?.id || catsOf('expense')[0].id;
 }
+function loadScript(src) {
+  return new Promise((res, rej) => { if (document.querySelector(`script[src="${src}"]`)) return res(); const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+}
+async function fileToRows(file) {
+  if (/\.(xlsx|xls)$/i.test(file.name) || /spreadsheet|ms-excel/.test(file.type)) {
+    await loadScript('vendor/xlsx.mini.min.js');
+    const wb = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
+    const raw = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: '' });
+    const cell = c => c instanceof Date ? `${pad(c.getDate())}-${pad(c.getMonth() + 1)}-${c.getFullYear()}`
+      : typeof c === 'number' ? (Number.isInteger(c) && Math.abs(c) > 9999999 ? String(c) : c.toFixed(2).replace('.', ',')) : String(c).trim();
+    return { rows: raw.map(r => r.map(cell)).filter(r => r.some(c => c !== '')), delim: 'xlsx' };
+  }
+  return parseCSV(await readFile(file));
+}
+/* Lån & Spar Bank (SDC-netbank) "Posteringsdetaljer": ingen overskrifter, ; som separator, UTF-8 med BOM,
+   16 kolonner: 0 tekst fra afsender, 1 posteringstekst, 2 fra-konto, 3 til-konto, 4 beløb (med fortegn, dansk format),
+   5 godkendt af, 7 oprettet, 8 bogføringsdato, 9 rentedato, 10 dispositionsdato (dd-mm-åååå), 11-12 referencer, 15 modtager. */
+function detectLSB(rows) {
+  const sample = rows.slice(0, 40);
+  if (!sample.length) return null;
+  const ok = sample.filter(r => r.length >= 11 && /^-?[\d.]*\d(,\d{1,2})?$/.test((r[4] || '').trim()) && /^\d{2}-\d{2}-\d{4}$/.test((r[8] || '').trim()) && (r[1] || '').trim());
+  if (ok.length < Math.max(1, sample.length * 0.8)) return null;
+  const counts = {};
+  ok.forEach(r => { const acc = (parseAmount(r[4]) < 0 ? r[2] : r[3]).trim(); if (acc) counts[acc] = (counts[acc] || 0) + 1; });
+  const account = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+  return { bank: 'Lån & Spar Bank', format: 'Posteringsdetaljer', date: 8, text: 1, amount: 4, hasHeader: false, account,
+    textOf: r => { const a = (r[1] || '').trim(), b = (r[0] || '').trim(); return b && b.toLowerCase() !== a.toLowerCase() ? `${a} · ${b}` : a; },
+    isTransfer: r => !!((r[2] || '').trim() && (r[3] || '').trim() && /^(til|fra|overf)/i.test((r[1] || '').trim())) };
+}
+function guessColumns(rows) {
+  const header = rows[0] || [];
+  const ncol = Math.max(...rows.slice(0, 20).map(r => r.length));
+  const find = re => header.findIndex(h => re.test(h));
+  let cDate = find(/^(bogf.*dato|dato|date|posteringsdato|bogført)/i), cText = find(/tekst|beskriv|text|modtager|description|posteringstekst/i), cAmt = find(/bel[øo]b|amount|beloeb/i);
+  const sample = rows.slice(1, 8).length ? rows.slice(1, 8) : rows.slice(0, 7);
+  const cols = [...Array(ncol).keys()];
+  if (cDate < 0) cDate = cols.find(i => sample.every(r => parseDateDK(r[i]))) ?? 0;
+  const money = v => /^-?[\d.]*\d,\d{2}$/.test((v || '').trim());
+  if (cAmt < 0) cAmt = cols.find(i => i !== cDate && sample.every(r => money(r[i]))) ?? cols.find(i => i !== cDate && sample.every(r => !isNaN(parseAmount(r[i])) && String(r[i]).replace(/\D/g, '').length < 10)) ?? 1;
+  if (cText < 0) cText = cols.find(i => i !== cDate && i !== cAmt && sample.some(r => /[a-zæøå]{3}/i.test(r[i] || ''))) ?? cols.find(i => i !== cDate && i !== cAmt) ?? 2;
+  return { ncol, header, date: cDate, text: cText, amount: cAmt, hasHeader: !parseDateDK(header[cDate]) && isNaN(parseAmount(header[cAmt])) };
+}
 async function openCsvImport(file) {
   let parsed;
-  try { parsed = parseCSV(await readFile(file)); } catch (e) { toast('Kunne ikke læse filen'); return; }
+  try { parsed = await fileToRows(file); } catch (e) { toast('Kunne ikke læse filen'); return; }
   const { rows, delim } = parsed;
-  if (rows.length < 1) { toast('Filen ser tom ud'); return; }
-  const header = rows[0];
-  const ncol = Math.max(...rows.slice(0, 20).map(r => r.length));
-  const find = re => { const i = header.findIndex(h => re.test(h)); return i; };
-  // Gæt kolonner ud fra overskrifter eller indhold
-  let cDate = find(/dato|date|bogf|posteringsdato/i), cText = find(/tekst|beskriv|text|modtager|navn|description|posteringstekst/i), cAmt = find(/bel[øo]b|amount|beloeb/i);
-  const sample = rows.slice(1, 6);
-  if (cDate < 0) cDate = [...Array(ncol).keys()].find(i => sample.every(r => parseDateDK(r[i]))) ?? 0;
-  if (cAmt < 0) cAmt = [...Array(ncol).keys()].find(i => i !== cDate && sample.every(r => !isNaN(parseAmount(r[i])))) ?? 1;
-  if (cText < 0) cText = [...Array(ncol).keys()].find(i => i !== cDate && i !== cAmt) ?? 2;
-  const hasHeader = !parseDateDK(header[cDate]);
-  const colOpts = sel => [...Array(ncol).keys()].map(i => `<option value="${i}" ${i === sel ? 'selected' : ''}>${esc(hasHeader ? header[i] || `Kolonne ${i + 1}` : `Kolonne ${i + 1}`)}</option>`).join('');
+  if (!rows.length) { toast('Filen ser tom ud'); return; }
+  const lsb = detectLSB(rows);
+  const g = guessColumns(rows);
+  const ncol = g.ncol;
+  const m0 = lsb ? { date: lsb.date, text: lsb.text, amount: lsb.amount, hasHeader: false } : g;
+  const colName = i => g.hasHeader && !lsb ? (g.header[i] || `Kolonne ${i + 1}`) : `Kolonne ${i + 1}${rows[0][i] ? ' – ' + String(rows[0][i]).slice(0, 18) : ''}`;
+  const colOpts = sel => [...Array(ncol).keys()].map(i => `<option value="${i}" ${i === sel ? 'selected' : ''}>${esc(colName(i))}</option>`).join('');
+  const transfers = lsb ? rows.filter(lsb.isTransfer).length : 0;
   openSheet(`${sheetHead('🏦 Importér kontoudtog')}
-    <p class="muted small">Fundet ${rows.length} rækker · separator “${delim === '\t' ? 'tab' : delim}”. Vælg hvilke kolonner der indeholder dato, tekst og beløb. Negative beløb bliver til udgifter, positive til indtægter. Kategorier gættes ud fra teksten.</p>
-    <div class="field-row" style="grid-template-columns:1fr 1fr 1fr">
-      <div class="field"><label>Dato</label><select class="input" id="mDate">${colOpts(cDate)}</select></div>
-      <div class="field"><label>Tekst</label><select class="input" id="mText">${colOpts(cText)}</select></div>
-      <div class="field"><label>Beløb</label><select class="input" id="mAmt">${colOpts(cAmt)}</select></div>
-    </div>
-    <label class="switch"><span>Første række er overskrifter</span><input type="checkbox" id="mHead" ${hasHeader ? 'checked' : ''}></label>
+    ${lsb ? `<div class="banner ok"><span>✅</span><div class="grow"><strong>Genkendt: ${lsb.bank}</strong> (${lsb.format}${lsb.account ? ' · konto ' + esc(lsb.account) : ''}). Kolonnerne er sat op automatisk – tjek forhåndsvisningen og tryk Importér.</div></div>`
+      : `<p class="muted small">Fundet ${rows.length} rækker${delim === 'xlsx' ? ' i Excel-arket' : ` · separator “${delim === '\t' ? 'tab' : delim}”`}. Vælg hvilke kolonner der indeholder dato, tekst og beløb.</p>`}
+    <details class="map" ${lsb ? '' : 'open'}><summary>Kolonner</summary>
+      <div class="field-row" style="grid-template-columns:1fr 1fr 1fr;margin-top:10px">
+        <div class="field"><label>Dato</label><select class="input" id="mDate">${colOpts(m0.date)}</select></div>
+        <div class="field"><label>Tekst</label><select class="input" id="mText">${colOpts(m0.text)}</select></div>
+        <div class="field"><label>Beløb</label><select class="input" id="mAmt">${colOpts(m0.amount)}</select></div>
+      </div>
+      <label class="switch"><span>Første række er overskrifter</span><input type="checkbox" id="mHead" ${m0.hasHeader ? 'checked' : ''}></label>
+    </details>
+    ${transfers ? `<label class="switch"><span>Spring kontooverførsler over <span class="muted small">(${transfers} “Til/Fra …”-overførsler mellem konti)</span></span><input type="checkbox" id="mSkipTr"></label>` : ''}
+    <p class="muted small">Negative beløb bliver til udgifter, positive til indtægter. Kategori og job gættes ud fra teksten, og posteringer der allerede findes, springes over.</p>
     <div id="mPreview"></div>
     <button class="btn btn-primary btn-block" id="mImport" style="margin-top:12px">Importér</button>`, sheet => {
     const build = () => {
       const d = +$('#mDate', sheet).value, tx = +$('#mText', sheet).value, a = +$('#mAmt', sheet).value;
+      const useLsb = lsb && d === lsb.date && tx === lsb.text && a === lsb.amount;
+      const skipTr = $('#mSkipTr', sheet)?.checked;
       const body = $('#mHead', sheet).checked ? rows.slice(1) : rows;
-      return body.map(r => { const date = parseDateDK(r[d]); const amount = parseAmount(r[a]); if (!date || isNaN(amount) || amount === 0) return null; const type = amount < 0 ? 'expense' : 'income'; const note = (r[tx] || '').slice(0, 80); return { id: uid(), date, amount: Math.abs(amount), type, note, categoryId: guessCat(note, type), imported: true }; }).filter(Boolean);
+      return body.map(r => {
+        if (skipTr && lsb.isTransfer(r)) return null;
+        const date = parseDateDK(r[d]); const amount = parseAmount(r[a]);
+        if (!date || isNaN(amount) || amount === 0) return null;
+        const type = amount < 0 ? 'expense' : 'income';
+        const note = (useLsb ? lsb.textOf(r) : String(r[tx] || '')).replace(/\s+/g, ' ').trim().slice(0, 90);
+        const categoryId = guessCat(note, type);
+        const o = { id: uid(), date, amount: Math.abs(amount), type, note, categoryId, imported: true };
+        if (type === 'income') { const jid = jobForCategory(categoryId, note); if (jid) o.jobId = jid; }
+        return o;
+      }).filter(Boolean);
     };
+    const isDupe = n => S.transactions.some(t => t.date === n.date && Math.abs(t.amount - n.amount) < .005 && t.type === n.type && (t.note || '') === n.note);
     const preview = () => {
-      const list = build();
-      const dupes = list.filter(n => S.transactions.some(t => t.date === n.date && Math.abs(t.amount - n.amount) < .005 && t.type === n.type && (t.note || '') === n.note)).length;
-      $('#mPreview', sheet).innerHTML = `<div class="scroll-x"><table class="tbl"><thead><tr><th>Dato</th><th>Tekst</th><th>Kategori</th><th class="r">Beløb</th></tr></thead><tbody>${list.slice(0, 6).map(t => `<tr><td>${fmtDateNum(t.date)}</td><td>${esc(t.note)}</td><td>${cat(t.categoryId).emoji} ${esc(cat(t.categoryId).name)}</td><td class="r ${t.type === 'income' ? 'pos' : ''}">${t.type === 'income' ? '' : '−'}${kr(t.amount)}</td></tr>`).join('')}</tbody></table></div>
-        <p class="small muted">${list.length} gyldige posteringer${dupes ? ` · ${dupes} findes allerede og springes over` : ''}.</p>`;
+      const list = build(); const dupes = list.filter(isDupe).length;
+      const inc = sum(list.filter(t => t.type === 'income').map(t => t.amount)), exp = sum(list.filter(t => t.type === 'expense').map(t => t.amount));
+      $('#mPreview', sheet).innerHTML = `<div class="scroll-x"><table class="tbl"><thead><tr><th>Dato</th><th>Tekst</th><th>Kategori</th><th class="r">Beløb</th></tr></thead><tbody>${list.slice(0, 6).map(t => `<tr><td>${fmtDateNum(t.date)}</td><td style="max-width:180px;overflow:hidden;text-overflow:ellipsis">${esc(t.note)}</td><td>${cat(t.categoryId).emoji} ${esc(cat(t.categoryId).name)}${t.jobId ? ` · ${job(t.jobId).emoji}` : ''}</td><td class="r ${t.type === 'income' ? 'pos' : ''}">${t.type === 'income' ? '' : '−'}${kr(t.amount)}</td></tr>`).join('')}</tbody></table></div>
+        <p class="small muted">${list.length} posteringer (${kr(inc, false)} ind · ${kr(exp, false)} ud)${dupes ? ` · ${dupes} findes allerede og springes over` : ''}.</p>`;
     };
-    ['#mDate', '#mText', '#mAmt', '#mHead'].forEach(s => $(s, sheet).addEventListener('change', preview));
+    ['#mDate', '#mText', '#mAmt', '#mHead', '#mSkipTr'].forEach(s => $(s, sheet)?.addEventListener('change', preview));
     preview();
     $('#mImport', sheet).onclick = () => {
-      const list = build().filter(n => !S.transactions.some(t => t.date === n.date && Math.abs(t.amount - n.amount) < .005 && t.type === n.type && (t.note || '') === n.note));
+      const list = build().filter(n => !isDupe(n));
       if (!list.length) { toast('Ingen nye posteringer at importere'); return; }
       S.transactions.push(...list); save(); closeSheet();
       selMonth = list.map(t => t.date.slice(0, 7)).sort().pop(); location.hash = '#/posteringer'; render();
@@ -999,7 +1265,7 @@ function loadExample() {
   const budgets = { 'c-mad': 3500, 'c-ude': 1200, 'c-shopping': 1500, 'c-fritid': 1000, 'c-transport': 900, 'c-sundhed': 600 };
   S.categories.forEach(c => { if (budgets[c.id]) c.budget = budgets[c.id]; });
   const rec = (name, type, amount, categoryId, day, kind = 'fast', extra = {}) => S.recurring.push({ id: uid(), name, type, amount, categoryId, day, kind, startMonth: start, skipped: [], example: true, ...extra });
-  rec('Løn – fysioterapeut', 'income', 27480, 'c-lon', 31);
+  rec('Løn – Artrose Fys', 'income', 22850, 'c-lon', 31, 'fast', { jobId: 'job-artrose' });
   rec('Husleje', 'expense', 8450, 'c-bolig', 1);
   rec('El a conto', 'expense', 585, 'c-el', 1);
   rec('Indboforsikring', 'expense', 129, 'c-forsikring', 1);
@@ -1014,7 +1280,7 @@ function loadExample() {
   rec('Fitness World', 'expense', 299, 'c-sundhed', 1, 'abonnement');
   rec('Storytel', 'expense', 169, 'c-abonnement', 22, 'abonnement');
   applyRecurring();
-  const add = (date, type, amount, categoryId, note) => { if (date <= today) S.transactions.push({ id: uid(), date, type, amount: Math.round(amount * 100) / 100, categoryId, note, example: true }); };
+  const add = (date, type, amount, categoryId, note, jobId) => { if (date <= today) S.transactions.push({ id: uid(), date, type, amount: Math.round(amount * 100) / 100, categoryId, note, example: true, ...(jobId ? { jobId } : {}) }); };
   const shops = ['Netto', 'Føtex', 'Rema 1000', 'Lidl', 'Meny', 'Coop 365'];
   const eat = ['Joe & the Juice', 'Wolt – sushi', 'Café Norden', 'Kebabhuset', 'Restaurant Mother', 'Espresso House'];
   const shopping = ['Zalando', 'H&M', 'Sport 24', 'Matas', 'IKEA', 'Elgiganten'];
@@ -1023,7 +1289,11 @@ function loadExample() {
   for (let m = start, i = 0; m <= now; m = addMonths(m, 1), i++) {
     const D = dim(m), d = n => `${m}-${pad(Math.min(D, n))}`;
     const sessions = 3 + Math.floor(rnd() * 6);
-    for (let k = 0; k < sessions; k++) add(d(2 + Math.floor(rnd() * 26)), 'income', [500, 550, 600, 1800, 650][Math.floor(rnd() * 5)], 'c-pt', `PT – ${clients[Math.floor(rnd() * clients.length)]} (MobilePay)`);
+    for (let k = 0; k < sessions; k++) add(d(2 + Math.floor(rnd() * 26)), 'income', [500, 550, 600, 1800, 650][Math.floor(rnd() * 5)], 'c-pt', `PT – ${clients[Math.floor(rnd() * clients.length)]} (MobilePay)`, 'job-pt');
+    add(d(10), 'income', Math.round(2200 + rnd() * 2600), 'c-lon', 'Løn – Handicapformidlingen', 'job-handicap');
+    const mo = Number(m.slice(5)), stays = [6, 7, 8].includes(mo) ? 3 + Math.floor(rnd() * 2) : rnd() < .55 ? 1 + Math.floor(rnd() * 2) : 0;
+    for (let k = 0; k < stays; k++) add(d(3 + Math.floor(rnd() * 24)), 'income', Math.round((1400 + rnd() * 2600) / 10) * 10, 'c-udlejning', 'Airbnb – udbetaling', 'job-airbnb');
+    if (stays) add(d(28), 'expense', 350 * stays, 'c-andet', 'Rengøring efter Airbnb-gæster');
     const groc = 9 + Math.floor(rnd() * 5);
     for (let k = 0; k < groc; k++) add(d(1 + Math.floor(rnd() * D)), 'expense', between(120, 520), 'c-mad', shops[Math.floor(rnd() * shops.length)]);
     const out = 3 + Math.floor(rnd() * 5);
@@ -1032,7 +1302,7 @@ function loadExample() {
     for (let k = 0; k < 1 + Math.floor(rnd() * 3); k++) add(d(1 + Math.floor(rnd() * D)), 'expense', between(180, 950), 'c-shopping', shopping[Math.floor(rnd() * shopping.length)]);
     for (let k = 0; k < Math.floor(rnd() * 3); k++) add(d(1 + Math.floor(rnd() * D)), 'expense', between(120, 650), 'c-fritid', fun[Math.floor(rnd() * fun.length)]);
     if (rnd() < .4) add(d(10 + Math.floor(rnd() * 15)), 'expense', between(90, 450), 'c-sundhed', ['Apotek', 'Tandlæge', 'Løbesko-rens'][Math.floor(rnd() * 3)]);
-    if (i === 4) add(d(15), 'income', 4250, 'c-indt-andet', 'Feriepenge (ferietillæg)');
+    if (i === 4) add(d(15), 'income', 4250, 'c-lon', 'Feriepenge (ferietillæg) – Artrose Fys', 'job-artrose');
     if (i === 7) add(d(20), 'expense', 6800, 'c-fritid', 'Sommerferie – fly & hotel');
     if (i === 9) add(d(3), 'income', 1200, 'c-indt-andet', 'Salg på DBA');
   }
@@ -1068,6 +1338,8 @@ const actions = {
   'edit-budgets': () => openBudgetModal(),
   'add-cat': el => openCatModal(null, el.dataset.type),
   'edit-cat': el => openCatModal(cat(el.dataset.id)),
+  'add-job': () => openJobModal(),
+  'edit-job': el => openJobModal(job(el.dataset.id)),
   'prev-month': () => { selMonth = addMonths(selMonth, -1); render(); },
   'next-month': () => { selMonth = addMonths(selMonth, 1); render(); },
   'toggle-theme': () => setTheme(S.settings.theme === 'dark' ? 'light' : 'dark'),
@@ -1091,7 +1363,7 @@ document.addEventListener('click', e => {
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
 document.addEventListener('input', e => {
   if (e.target.id === 'txSearch') { txFilter.q = e.target.value; clearTimeout(window._sq); window._sq = setTimeout(render, 220); }
-  if (e.target.id === 'ptRate' || e.target.id === 'ptRateNum') { const v = Math.max(0, Math.min(100, Number(e.target.value) || 0)); S.settings.ptTaxRate = v; save(); clearTimeout(window._pr); window._pr = setTimeout(render, e.target.id === 'ptRate' ? 120 : 500); }
+  if (e.target.id === 'jobRate' || e.target.id === 'jobRateNum') { const j = job(e.target.dataset.id); if (!j) return; j.taxRate = Math.max(0, Math.min(100, Number(e.target.value) || 0)); save(); clearTimeout(window._pr); window._pr = setTimeout(render, e.target.id === 'jobRate' ? 120 : 500); }
   if (e.target.id === 'nameInput') { S.settings.name = e.target.value.trim() || 'Simon'; save(); }
 });
 document.addEventListener('change', async e => {
