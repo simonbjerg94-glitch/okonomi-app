@@ -1,0 +1,17 @@
+{
+  "name": "Min Økonomi",
+  "short_name": "Økonomi",
+  "description": "Overblik over løn, udgifter, budget og opsparingsmål",
+  "lang": "da-DK",
+  "start_url": "./index.html#/overblik",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b0d17",
+  "theme_color": "#0b0d17",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

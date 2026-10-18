@@ -1,0 +1,7 @@
+tools/
+screenshots/
+node_modules/
+*.py
+test*/
+*.log
+.DS_Store
