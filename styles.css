@@ -612,3 +612,8 @@ a.btn { text-decoration: none; }
 .cres h2 { display: block; text-align: center; }
 @media (max-width: 759px) { .badge-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; } .badge { padding: 12px 4px; } .badge .badge-ico { width: 48px; height: 48px; font-size: 26px; } }
 .lock-box img { border-radius: 16px; }
+/* v9: Personlig inflation */
+.pi-bar { height: 4px; border-radius: 99px; background: var(--input); margin-top: 5px; max-width: 160px; }
+.pi-bar span { display: block; height: 100%; border-radius: 99px; }
+.pi-tbl td.muted { white-space: normal; min-width: 140px; }
+.pi-kpis > .kpi:last-child { grid-column: auto !important; }

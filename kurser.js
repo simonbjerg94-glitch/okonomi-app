@@ -2,7 +2,8 @@
    Generel undervisning, ikke personlig rådgivning. Tal med årstal er markeret og kan ændre sig. */
 const COURSE_TRACKS = [
   { id: 'grundlag', e: '🧱', name: 'Grundlag', desc: 'Budget, løn og gæld' },
-  { id: 'livsfaser', e: '🧭', name: 'Livsfaser', desc: 'Bolig, studie, familie og arbejdsliv' },
+  { id: 'livsfaser', e: '🧭', name: 'Livsfaser', desc: 'Bolig, studie, familie og arv' },
+  { id: 'arbejde', e: '💼', name: 'Arbejdsliv', desc: 'Løn, goder, ledighed og sygdom' },
   { id: 'invest', e: '📈', name: 'Investering & pension', desc: 'Få pengene til at arbejde' },
   { id: 'selvst', e: '🧾', name: 'Selvstændig', desc: 'Bijob, B-indkomst og egen virksomhed' },
   { id: 'hjem', e: '🏡', name: 'Hjem & hverdag', desc: 'Sikkerhed, bil, energi og børn' }
@@ -205,7 +206,7 @@ COURSES.push(
     { q: 'Hvilken boafgift betaler en ægtefælle?', o: ['0 %', '15 %', '36,25 %'], a: 0, x: 'Ægtefæller betaler ikke boafgift (skat.dk).' },
     { q: 'Hvad bestemmer, hvem der får udbetalt din pension ved død?', o: ['Altid testamentet', 'Typisk begunstigelsen hos pensionsselskabet', 'Kommunen'], a: 1, x: 'Pension og livsforsikring følger begunstigelsen. Tjek den på PensionsInfo.' }
   ] },
-{ id: 'akasse', track: 'livsfaser', e: '🛟', t: 'A-kasse og hvis du mister jobbet', desc: 'Dagpenge, krav og de første skridt', badge: { e: '🛟', n: 'Sikkerhedsnet' },
+{ id: 'akasse', track: 'arbejde', e: '🛟', t: 'A-kasse og hvis du mister jobbet', desc: 'Dagpenge, krav og de første skridt', badge: { e: '🛟', n: 'Sikkerhedsnet' },
   src: [['https://www.borger.dk/arbejde-dagpenge-ferie/Dagpenge-kontanthjaelp-og-sygedagpenge/Arbejdsloeshedsdagpenge', 'borger.dk: Dagpenge'], ['https://bm.dk/satser/satser-for-2026/dagpenge', 'bm.dk: Satser 2026']],
   steps: [
     { t: 'Hvad er en a-kasse?', b: 'En a-kasse er en arbejdsløshedsforsikring. Er du medlem og bliver ledig, kan du få dagpenge. A-kasse og fagforening er to forskellige ting – du kan være medlem af den ene uden den anden. Kontingentet til a-kassen kan trækkes fra i skat uden loft.', h: 'A-kasse ≠ fagforening.' },
@@ -293,5 +294,141 @@ COURSES.push(
     { q: 'Hvad står "brug – gem – giv" for?', o: ['Tre formål med pengene', 'Tre banker', 'Tre typer lån'], a: 0, x: 'Pengene deles efter formål: forbrug, opsparing og at give.' },
     { q: 'Hvad er en god idé med børns spil på mobilen?', o: ['At gemme dit kort i spillet', 'At slå køb fra eller kræve godkendelse', 'At give dem din kode'], a: 1, x: 'Køb i spil er designet til at være lette. Slå dem fra.' },
     { q: 'Hvad bør du hjælpe med ved første job?', o: ['Skattekort/frikort og lønseddel', 'Et forbrugslån', 'Ingenting'], a: 0, x: 'Første lønseddel og skattekort er en god anledning til at lære om skat.' }
+  ] }
+);
+COURSES.push(
+{ id: 'inflation', track: 'grundlag', e: '📈', t: 'Personlig inflation', desc: 'Din egen kurv er ikke landsgennemsnittet', badge: { e: '🧺', n: 'Prisdetektiv' },
+  app: ['#/inflation', '📈 Beregn din personlige inflation'], src: [['https://www.dst.dk/da/Statistik/emner/oekonomi/prisindeks/forbrugerprisindeks', 'Danmarks Statistik: Forbrugerprisindeks']],
+  steps: [
+    { t: 'Hvad er inflation?', b: 'Inflation er, at priserne generelt stiger, så dine penge kan købe lidt mindre end før. Danmarks Statistik måler det med <b>forbrugerprisindekset</b>: en stor "indkøbskurv" af varer og tjenester, vægtet efter hvad danskerne i gennemsnit bruger penge på.', h: 'Inflation = det samme koster mere.' },
+    { t: 'Din kurv er ikke gennemsnittet', b: 'Gennemsnitskurven passer sjældent præcist på dig. Bruger du mange penge på transport, mærker du stigende brændstof- og billetpriser mere. Bruger du mest på dagligvarer, betyder fødevarepriserne mere. Din <b>personlige inflation</b> afhænger af, hvordan dit eget forbrug er fordelt.', h: 'Din fordeling afgør, hvad prisstigninger koster dig.' },
+    { t: 'Sådan beregner du den', b: 'Find din andel af forbruget pr. kategori (fx 30 % bolig, 20 % mad, 10 % transport). Gang hver andel med prisstigningen for den kategori fra Danmarks Statistik, og læg resultaterne sammen. Det giver din vægtede personlige inflation. Appen kan gøre det for dig ud fra dine posteringer.', h: 'Σ (din andel × kategoriens prisstigning).' },
+    { t: 'Pris eller forbrug?', b: 'Bruger du 10 % mere på mad end sidste år, er det ikke nødvendigvis inflation – måske køber du bare mere. Det er derfor, appen viser både den vægtede inflation (ren prisudvikling) og dit eget forbrug år over år (pris <i>og</i> mængde).', h: 'Mere forbrug ≠ højere priser.' },
+    { t: 'Hvad kan du bruge det til?', b: 'Kender du din personlige inflation, ved du, hvor meget din indkomst skal stige for at holde din købekraft – nyttigt til lønforhandling og budget. Og du kan se, hvor prisstigninger rammer dig hårdest, så du ved, hvor det giver mest at spare.', h: 'Stiger lønnen mindre end din inflation, falder din købekraft.' }
+  ],
+  quiz: [
+    { q: 'Hvad måler forbrugerprisindekset?', o: ['Prisudviklingen på en gennemsnitlig indkøbskurv', 'Din løn', 'Aktiekurser'], a: 0, x: 'Danmarks Statistik måler prisudviklingen på en vægtet kurv af varer og tjenester.' },
+    { q: 'Hvorfor kan din personlige inflation være anderledes end den officielle?', o: ['Fordi dit forbrug er fordelt anderledes end gennemsnittet', 'Fordi du bor i en anden kommune', 'Det kan den ikke'], a: 0, x: 'Vægtene i din egen kurv afgør, hvor meget hver prisændring betyder for dig.' },
+    { q: 'Du bruger 40 % på bolig (+2 %) og 60 % på resten (+1 %). Hvad er din vægtede inflation?', o: ['1,4 %', '1,5 %', '3 %'], a: 0, x: '0,4 × 2 % + 0,6 × 1 % = 0,8 % + 0,6 % = 1,4 %.' },
+    { q: 'Dit madforbrug er steget 10 %. Er det inflation?', o: ['Ja, altid', 'Ikke nødvendigvis – du kan også købe mere', 'Nej, aldrig'], a: 1, x: 'Forbrugsændringer blander pris og mængde.' }
+  ] },
+{ id: 'skatteopt', track: 'grundlag', e: '⚖️', t: 'Lovlig skatteoptimering', desc: 'Fradrag og regler, alle har ret til – generel viden, ikke rådgivning', badge: { e: '⚖️', n: 'Fradragsjæger' },
+  src: [['https://skat.dk/borger/fradrag', 'skat.dk: Fradrag'], ['https://skat.dk/hjaelp/satser', 'skat.dk: Satser']],
+  steps: [
+    { t: 'Skatteoptimering ≠ snyd', b: 'Lovlig skatteoptimering betyder at bruge de fradrag og ordninger, loven giver dig – og at have de rigtige tal på forskudsopgørelsen. Det er ikke rådgivning: Reglerne har betingelser, og det rigtige valg afhænger af din situation. Tjek altid skat.dk.', h: 'Det er dine rettigheder – ikke smuthuller.' },
+    { t: 'Kørsel og rejser', b: '<b>Befordringsfradrag</b>: Ingen fradrag for de første 24 km pr. dag tur/retur. Fra 25–120 km er det 3,17 kr. pr. km, over 120 km 1,59 kr. pr. km (2026). Det kommer ikke automatisk – du skal selv skrive det på. <b>Rejsefradrag</b> kan gives ved overnatning på et midlertidigt arbejdssted, højst 34.400 kr. i 2026.', h: 'Kørselsfradrag: Ret selv forskudsopgørelsen (skat.dk, 2026).' },
+    { t: 'Fagforening, a-kasse og hjemmet', b: 'Kontingent til fagforening giver fradrag op til 7.000 kr. (2026), mens a-kassekontingent kan trækkes fra uden loft. <b>Servicefradrag</b> (fx rengøring, havearbejde) giver fradrag op til 18.300 kr. og <b>håndværkerfradrag</b> (fx visse grønne ydelser) op til 9.000 kr. pr. person (2026) – kun for arbejdsløn, betalt digitalt.', h: 'Servicefradrag 18.300 kr. · håndværkerfradrag 9.000 kr. (2026).' },
+    { t: 'Pension og aktiesparekonto', b: 'Indbetalinger til ratepension og livrente giver fradrag (ratepension op til 68.700 kr. i 2026) og et ekstra pensionsfradrag. På en aktiesparekonto beskattes afkastet med 17 % (indskudsloft 174.200 kr. i 2026) – lavere end aktieindkomst uden for kontoen (27 % op til 79.400 kr., derover 42 %).', h: 'ASK 17 % vs. aktieindkomst 27/42 % (2026).' },
+    { t: 'Kapitalindkomst og ægtefæller', b: 'Renteudgifter (negativ kapitalindkomst) giver et fradrag med en skatteværdi på ca. 33 % op til 50.000 kr. og lavere derover – afhængigt af kommune. Renteindtægter beskattes som kapitalindkomst. Gifte, der bor sammen, kan overføre <b>uudnyttet personfradrag</b> til hinanden (personfradrag 54.100 kr. i 2026) – det sker automatisk på årsopgørelsen.', h: 'Gifte kan udnytte hinandens personfradrag.' }
+  ],
+  quiz: [
+    { q: 'Hvor mange km pr. dag giver ikke kørselsfradrag (2026)?', o: ['De første 12 km', 'De første 24 km', 'De første 50 km'], a: 1, x: 'De første 24 km tur/retur giver ingen fradrag (skat.dk).' },
+    { q: 'Hvad er loftet for fradrag for fagforeningskontingent (2026)?', o: ['3.000 kr.', '7.000 kr.', 'Der er intet loft'], a: 1, x: 'Fagforening højst 7.000 kr. A-kasse har intet loft.' },
+    { q: 'Hvordan beskattes afkast på en aktiesparekonto?', o: ['17 % lagerbeskatning', '42 %', 'Skattefrit'], a: 0, x: '17 % af årets afkast (skat.dk).' },
+    { q: 'Hvem kan overføre uudnyttet personfradrag?', o: ['Alle venner', 'Gifte, der bor sammen', 'Kun pensionister'], a: 1, x: 'Ægtefæller, der bor sammen, kan overføre uudnyttet personfradrag.' }
+  ] },
+{ id: 'loenforh', track: 'arbejde', e: '💬', t: 'Forhandl din løn', desc: 'Forbered dig, kend din værdi og hele pakken', badge: { e: '💬', n: 'Forhandler' },
+  steps: [
+    { t: 'Kend markedsprisen', b: 'Find lønstatistik for dit fag hos din fagforening, og spørg kolleger og netværk. Kend din nuværende løn inklusive tillæg og pension. Jo bedre du kender niveauet, jo mere selvsikkert kan du argumentere.', h: 'Statistik slår mavefornemmelse.' },
+    { t: 'Saml dine argumenter', b: 'Skriv konkrete resultater ned: nye opgaver, ansvar, kurser, tilfredse kunder eller penge, du har sparet. Arbejdsgiveren betaler for værdi – ikke for at du har brug for flere penge. Prisstigninger kan være et supplerende argument.', h: 'Resultater med tal virker bedst.' },
+    { t: 'Hele pakken tæller', b: 'Løn er mere end kroner pr. måned: pensionsprocent, arbejdstid, ekstra ferie, efteruddannelse, hjemmearbejde, frokostordning og tillæg. Få procent mere i pension kan over et arbejdsliv være meget værd.', h: '1 % mere i pension er også en lønstigning.' },
+    { t: 'Selve samtalen', b: 'Book et møde – tag det ikke i en forbipasserende snak. Start med et konkret tal i den høje ende af det realistiske. Lyt, vær rolig, og lad pauser være pauser. Bliv enige om næste skridt, hvis der ikke kan gives noget nu.', h: 'Nævn et konkret tal – ikke "lidt mere".' },
+    { t: 'Efter forhandlingen', b: 'Få aftalen bekræftet skriftligt, og tjek næste lønseddel. Fik du nej, så spørg hvad der skal til, og aftal et nyt tidspunkt. Ved nyt job er det typisk nemmest at forhandle, før du skriver under.', h: 'Skriftligt bekræftet – og tjek lønsedlen.' }
+  ],
+  quiz: [
+    { q: 'Hvad er typisk det stærkeste argument?', o: ['At du har brug for pengene', 'Konkrete resultater og ansvar', 'At kollegaen tjener mere'], a: 1, x: 'Arbejdsgiveren betaler for den værdi, du skaber.' },
+    { q: 'Hvor finder du lønstatistik for dit fag?', o: ['Hos fagforeningen', 'I horoskopet', 'Hos Skattestyrelsen'], a: 0, x: 'Fagforeninger har ofte detaljeret lønstatistik.' },
+    { q: 'Hvad hører med til "hele pakken"?', o: ['Pension, ferie, uddannelse og arbejdstid', 'Kun månedslønnen', 'Kun bonus'], a: 0, x: 'Mange goder er penge værd – især pension.' },
+    { q: 'Hvordan afslutter du bedst en forhandling?', o: ['Med et håndtryk og ingenting skriftligt', 'Med en skriftlig bekræftelse', 'Ved at sige op'], a: 1, x: 'En skriftlig bekræftelse forebygger misforståelser.' }
+  ] },
+{ id: 'syg', track: 'arbejde', e: '🩹', t: 'Økonomisk tryghed hvis du bliver syg', desc: 'Sygedagpenge, tab af erhvervsevne og kritisk sygdom', badge: { e: '🩹', n: 'Forberedt' },
+  src: [['https://www.borger.dk/arbejde-dagpenge-ferie/Dagpenge-kontanthjaelp-og-sygedagpenge/sygedagpenge', 'borger.dk: Sygedagpenge'], ['https://bm.dk/satser/satser-for-2026/sygedagpenge', 'bm.dk: Satser 2026'], ['https://www.pensionsinfo.dk/', 'PensionsInfo']],
+  steps: [
+    { t: 'Løn under sygdom', b: 'Mange ansatte får fuld løn under sygdom efter deres kontrakt eller overenskomst. Ellers kan du få <b>sygedagpenge</b>: Arbejdsgiveren betaler som udgangspunkt de første 30 kalenderdage, derefter overtager kommunen (borger.dk). Den maksimale sats er 5.085 kr. om ugen før skat (2026).', h: 'Sygedagpenge maks. 5.085 kr./uge (2026, bm.dk).' },
+    { t: 'Sygedagpenge er tidsbegrænset', b: 'Sygedagpenge udbetales kun i en begrænset periode og kan forlænges i særlige tilfælde. Som selvstændig er reglerne anderledes – du skal ofte selv have tegnet en forsikring for at få sygedagpenge fra første dag.', h: 'Selvstændig? Tjek din sygedagpengeforsikring.' },
+    { t: 'Tab af erhvervsevne', b: 'Mange pensionsordninger har en forsikring, der udbetaler et månedligt beløb, hvis din arbejdsevne bliver varigt nedsat. Tjek på PensionsInfo, om du er dækket, hvor meget, og hvor meget erhvervsevnen skal være nedsat for at du får udbetaling.', h: 'Find din dækning på PensionsInfo.' },
+    { t: 'Kritisk sygdom', b: 'En forsikring for kritisk sygdom udbetaler typisk et engangsbeløb ved visse alvorlige diagnoser. Pengene kan give ro til at være syg uden økonomiske bekymringer. Tjek hvilke sygdomme der er dækket, og om dækningen følger med, hvis du skifter job.', h: 'Dækningen kan forsvinde ved jobskifte – tjek det.' },
+    { t: 'Din egen buffer', b: 'Ingen forsikring dækker alt. En buffer på nogle måneders faste udgifter gør det lettere at klare en sygeperiode. Lav en liste over dine forsikringer og kontaktinfo, så du (eller dine nærmeste) hurtigt kan finde dem.', h: 'Buffer + overblik over forsikringer = tryghed.' }
+  ],
+  quiz: [
+    { q: 'Hvem betaler som udgangspunkt sygedagpenge de første 30 dage for ansatte?', o: ['Arbejdsgiveren', 'Kommunen', 'A-kassen'], a: 0, x: 'Arbejdsgiveren betaler i arbejdsgiverperioden, derefter kommunen (borger.dk).' },
+    { q: 'Hvad er den maksimale sygedagpengesats i 2026?', o: ['5.085 kr. pr. uge', '22.041 kr. pr. uge', '1.000 kr. pr. uge'], a: 0, x: 'Satsen er 5.085 kr. om ugen før skat (bm.dk).' },
+    { q: 'Hvor kan du tjekke din dækning ved tab af erhvervsevne?', o: ['PensionsInfo', 'Netbanken', 'Lønsedlen'], a: 0, x: 'PensionsInfo viser forsikringer i dine pensionsordninger.' },
+    { q: 'Hvad udbetaler en forsikring for kritisk sygdom typisk?', o: ['Et engangsbeløb', 'Løn resten af livet', 'Ingenting'], a: 0, x: 'Typisk et engangsbeløb ved visse alvorlige diagnoser.' }
+  ] },
+{ id: 'fond', track: 'invest', e: '🔎', t: 'Sådan læser du en investeringsfond', desc: 'ÅOP, faktaark og risikoindikator', badge: { e: '🔎', n: 'Fondslæser' },
+  app: ['#/renter', '🧮 Se omkostningernes effekt i beregneren'],
+  steps: [
+    { t: 'Start med "hvad ejer jeg?"', b: 'En fond samler mange investorers penge og køber aktier, obligationer eller begge dele. Faktaarket (ofte månedligt) viser de største beholdninger, fordeling på lande og brancher, og hvilket indeks fonden sammenligner sig med (benchmark).', h: 'Kend indholdet – ikke kun navnet.' },
+    { t: 'ÅOP – den årlige pris', b: 'ÅOP (årlige omkostninger i procent) samler fondens løbende omkostninger og handelsomkostninger. Forskellen mellem 0,3 % og 1,5 % om året lyder lille, men over 20–30 år kan den koste en stor del af afkastet. Brug beregneren til at se forskellen.', h: 'Små procenter, store beløb over tid.' },
+    { t: 'Risikoindikatoren 1–7', b: 'I dokumentet med central information (KID) står en risikoindikator fra 1 (lav) til 7 (høj). Den siger noget om, hvor meget værdien kan svinge. Brede aktiefonde ligger typisk i den høje ende, obligationsfonde lavere. Vælg en risiko, du kan holde fast i, når markedet falder.', h: 'Højere tal = større udsving.' },
+    { t: 'Afkast mod benchmark', b: 'Sammenlign fondens afkast efter omkostninger med dens benchmark over mange år – ikke kun sidste år. Mange aktive fonde klarer sig over tid ikke bedre end deres indeks efter omkostninger. Historisk afkast er ingen garanti.', h: 'Sammenlign over 5–10 år, efter omkostninger.' },
+    { t: 'Udbytte og skat', b: 'Nogle fonde udbetaler udbytte, andre geninvesterer (akkumulerende). Det har betydning for skatten: nogle beskattes, når du sælger (realisation), andre hvert år af værdistigningen (lager). Udenlandske ETF\'er skal typisk stå på Skattestyrelsens positivliste for at blive beskattet som aktieindkomst.', h: 'Tjek beskatningen, før du køber.' }
+  ],
+  quiz: [
+    { q: 'Hvad viser ÅOP?', o: ['De samlede årlige omkostninger i procent', 'Det forventede afkast', 'Fondens størrelse'], a: 0, x: 'ÅOP samler omkostningerne i ét tal.' },
+    { q: 'Hvad betyder risikoindikator 6?', o: ['Lav risiko', 'Høj risiko og store udsving', 'Garanteret afkast'], a: 1, x: 'Skalaen går fra 1 (lav) til 7 (høj).' },
+    { q: 'Hvad bør du sammenligne fondens afkast med?', o: ['Dens benchmark over mange år', 'Sidste uges afkast', 'Din nabos fond'], a: 0, x: 'Over mange år og efter omkostninger.' },
+    { q: 'Hvorfor er positivlisten relevant?', o: ['Den har betydning for, hvordan udenlandske ETF\'er beskattes', 'Den viser de bedste fonde', 'Den er ligegyldig'], a: 0, x: 'ETF\'er på positivlisten beskattes som aktieindkomst.' }
+  ] },
+{ id: 'pensionstyper', track: 'invest', e: '🧩', t: 'Ratepension vs. aldersopsparing vs. livrente', desc: 'Forskellene på fradrag, skat og udbetaling', badge: { e: '🧩', n: 'Pensionspuslespil' },
+  src: [['https://skat.dk/borger/pension-og-efterloen/aldersopsparing-og-aldersforsikring', 'skat.dk: Aldersopsparing'], ['https://skat.dk/borger/pension-og-efterloen/fradrag-for-indbetalinger-til-pension', 'skat.dk: Pensionsfradrag']],
+  steps: [
+    { t: 'Livrente – så længe du lever', b: 'En livsvarig livrente udbetaler hver måned resten af livet. Du får fradrag for indbetalingen, og udbetalingerne beskattes som personlig indkomst. Den beskytter mod at "løbe tør" for penge, hvis du bliver meget gammel.', h: 'Livrente = forsikring mod at leve længe.' },
+    { t: 'Ratepension – i en årrække', b: 'Ratepension udbetales over 10–30 år. Der er fradrag for indbetalinger op til 68.700 kr. om året (2026), og udbetalingerne beskattes som personlig indkomst. Den giver mere pr. måned i en periode, men stopper igen.', h: 'Ratepension-loft 68.700 kr. (2026).' },
+    { t: 'Aldersopsparing – skattefri udbetaling', b: 'Aldersopsparing giver intet fradrag ved indbetaling, men udbetales skattefrit. Du kan indbetale op til 9.900 kr. om året, hvis du har mere end 7 år til folkepension, og op til 64.200 kr., hvis du har 7 år eller mindre (2026).', h: 'Aldersopsparing: 9.900 / 64.200 kr. (2026, skat.dk).' },
+    { t: 'Fælles for alle', b: 'Afkastet på alle pensionsordninger beskattes løbende med pensionsafkastskat (PAL-skat). Udbetaling kan tidligst ske ved pensionsudbetalingsalderen, som afhænger af din alder. Udbetalinger fra livrente og ratepension kan påvirke folkepensionens pensionstillæg – aldersopsparing gør ikke.', h: 'Skattefri udbetaling påvirker ikke pensionstillægget.' },
+    { t: 'Hvad passer til hvem?', b: 'Har du høj indkomst nu og forventer lavere skat som pensionist, kan fradragsordninger være attraktive. Forventer du at få pensionstillæg, kan aldersopsparing være en fordel. Det er en individuel vurdering – brug PensionsInfo og tal med dit pensionsselskab.', h: 'Ingen "bedst for alle" – det afhænger af din situation.' }
+  ],
+  quiz: [
+    { q: 'Hvilken ordning udbetales skattefrit?', o: ['Livrente', 'Ratepension', 'Aldersopsparing'], a: 2, x: 'Aldersopsparing beskattes ved indbetaling og udbetales skattefrit.' },
+    { q: 'Hvor længe udbetales en ratepension?', o: ['10–30 år', 'Resten af livet', 'Én gang'], a: 0, x: 'Ratepension udbetales over 10–30 år.' },
+    { q: 'Hvad er loftet for aldersopsparing med mere end 7 år til folkepension (2026)?', o: ['9.900 kr.', '64.200 kr.', '68.700 kr.'], a: 0, x: '9.900 kr. – og 64.200 kr. med 7 år eller mindre (skat.dk).' },
+    { q: 'Hvad er livrentens største fordel?', o: ['Den udbetales hele livet', 'Den er skattefri', 'Den har ingen omkostninger'], a: 0, x: 'Den udbetaler, så længe du lever.' }
+  ] },
+{ id: 'frynse', track: 'arbejde', e: '🎁', t: 'Frynsegoder og beskatning', desc: 'Hvad er skattefrit – og hvad koster skat?', badge: { e: '🎁', n: 'Personalegode-pro' },
+  src: [['https://skat.dk/borger/personalegoder-hvis-du-er-medarbejder', 'skat.dk: Personalegoder'], ['https://skat.dk/borger/personalegoder-hvis-du-er-medarbejder/gaver-fra-arbejdsgiver', 'skat.dk: Gaver fra arbejdsgiver']],
+  steps: [
+    { t: 'Udgangspunktet: goder er løn', b: 'Får du noget af din arbejdsgiver, som har værdi for dig privat, er det som udgangspunkt skattepligtigt – præcis som løn. Der er dog en række undtagelser og særregler, og det er dem, der gør frynsegoder interessante.', h: 'Privat værdi = som udgangspunkt skat.' },
+    { t: 'Bagatelgrænse og julegave', b: 'Mindre personalegoder er skattefri, hvis den samlede værdi er højst 1.400 kr. om året (2026) – overstiger du grænsen, beskattes det hele. En julegave i form af en ting er skattefri op til 1.000 kr. Kontanter og gavekort, der svarer til kontanter, er altid skattepligtige (skat.dk).', h: 'Bagatelgrænse 1.400 kr. · julegave 1.000 kr. (2026).' },
+    { t: 'Arbejdsredskaber', b: 'Ting, du primært bruger i arbejdet – fx computer og telefon stillet til rådighed af arbejdsgiveren – er som regel skattefri, selvom du også bruger dem privat. Uddannelse, der er relevant for jobbet, er også typisk skattefri.', h: 'Arbejdsredskaber er normalt skattefri.' },
+    { t: 'Fri bil og bruttolønsordninger', b: 'Fri bil beskattes efter særlige regler ud fra bilens værdi – det kan være dyrere end man tror. I en <b>bruttolønsordning</b> går du ned i løn mod et gode (fx en cykel). Det kan give en skattefordel, men kan også mindske din pension og andre lønafhængige ydelser.', h: 'Regn efter: Nedgang i løn kan ramme pensionen.' },
+    { t: 'Tjek din årsopgørelse', b: 'Skattepligtige goder skal arbejdsgiveren indberette. Tjek din årsopgørelse og forskudsopgørelse, så værdien er med – ellers kan det blive til restskat. Spørg HR, hvis du er i tvivl om et gode.', h: 'Goder kan give restskat, hvis de ikke er med.' }
+  ],
+  quiz: [
+    { q: 'Hvad er bagatelgrænsen for mindre personalegoder i 2026?', o: ['1.400 kr.', '5.000 kr.', 'Der er ingen'], a: 0, x: '1.400 kr. om året (skat.dk). Overskrides den, beskattes hele værdien.' },
+    { q: 'Er et gavekort, der kan bruges som kontanter, skattefrit?', o: ['Ja', 'Nej, det er skattepligtigt'], a: 1, x: 'Kontanter og kontantlignende gavekort er skattepligtige.' },
+    { q: 'Hvad kan en bruttolønsordning påvirke?', o: ['Din pension og lønafhængige ydelser', 'Intet', 'Kun din ferie'], a: 0, x: 'Lavere løn kan betyde lavere pensionsindbetalinger.' },
+    { q: 'Er en arbejdscomputer typisk skattefri?', o: ['Ja, når den primært bruges i arbejdet', 'Nej, aldrig'], a: 0, x: 'Arbejdsredskaber er normalt skattefri.' }
+  ] },
+{ id: 'andel', track: 'livsfaser', e: '🏘️', t: 'Køb af andelsbolig eller sommerhus', desc: 'Foreningens økonomi, lån og særregler', badge: { e: '🏘️', n: 'Boligkender' },
+  src: [['https://finansdanmark.dk/gode-raad/forstaa-dit-realkreditlaan/laanegraenser-loebetider-og-afdragsfrihed/', 'Finans Danmark: Lånegrænser']],
+  steps: [
+    { t: 'Andelsbolig: du køber en andel', b: 'Køber du en andelsbolig, ejer du ikke selve lejligheden, men en andel i foreningen, der ejer ejendommen – og en ret til at bo i lejligheden. Prisen er begrænset af en lovbestemt maksimalpris, og bestyrelsen skal godkende handlen.', h: 'Andel = del af foreningen, ikke en ejerlejlighed.' },
+    { t: 'Læs foreningens regnskab', b: 'Foreningens økonomi er også din. Læs årsregnskab, budget, vedtægter og vedligeholdelsesplan: Hvor meget gæld har foreningen, hvilken type lån, og står der store renoveringer for døren? Spørg om boligafgiften er steget, og hvorfor.', h: 'Foreningens gæld er indirekte din gæld.' },
+    { t: 'Finansiering af andelen', b: 'Andelen finansieres typisk med et andelsboliglån i banken med pant i andelen – ikke realkredit, som kun foreningen selv kan optage. Andelsboliglån har ofte højere rente end realkredit, så regn den samlede månedlige udgift: boligafgift + ydelse.', h: 'Boligafgift + lån = den reelle månedlige pris.' },
+    { t: 'Sommerhus: finansiering og skat', b: 'Realkredit kan låne op til 75 % af værdien i et fritidshus (Finans Danmark), og resten skal være udbetaling og banklån. Du betaler boligskat, og et sommerhus må som udgangspunkt ikke bruges som helårsbolig. Udlejning har særlige skatteregler og bundfradrag – se skat.dk.', h: 'Fritidshus: op til 75 % realkredit.' },
+    { t: 'Den ærlige regnestykke', b: 'Regn alle udgifter ind: boligskat, forsikring, el, vand, vedligehold og transport derhen. Sammenlign med at leje et sommerhus nogle uger om året. Køb fordi du vil bruge det – regn ikke med udlejning eller prisstigninger for at få økonomien til at hænge sammen.', h: 'Køb til brug – ikke på håb.' }
+  ],
+  quiz: [
+    { q: 'Hvad køber du, når du køber en andelsbolig?', o: ['En andel i foreningen og retten til at bo i lejligheden', 'Selve lejligheden', 'En grund'], a: 0, x: 'Foreningen ejer ejendommen. Du ejer en andel.' },
+    { q: 'Hvordan finansieres en andel typisk?', o: ['Med et andelsboliglån i banken', 'Med realkredit i dit eget navn', 'Med SU-lån'], a: 0, x: 'Realkredit optages af foreningen. Du låner typisk i banken.' },
+    { q: 'Hvor meget kan realkredit låne til et fritidshus?', o: ['Op til 75 %', 'Op til 95 %', '0 %'], a: 0, x: 'Op til 75 % af værdien (Finans Danmark).' },
+    { q: 'Hvorfor skal du læse foreningens regnskab?', o: ['Foreningens gæld og vedligehold påvirker din økonomi', 'Det skal du ikke', 'For at finde naboens navn'], a: 0, x: 'Store lån og renoveringer kan hæve boligafgiften.' }
+  ] },
+{ id: 'noedplan', track: 'hjem', e: '🚨', t: 'Din økonomiske nødplan', desc: 'Buffer, overblik og hvad der sker, hvis det går galt', badge: { e: '🚨', n: 'Kriseklar' },
+  app: ['#/formue', '💎 Lav dit overblik i Nettoformue'], src: [['https://www.borger.dk/', 'borger.dk']],
+  steps: [
+    { t: 'Hvorfor en nødplan?', b: 'Jobtab, sygdom, skilsmisse eller en stor uventet regning sker oftere, end man tror. En nødplan er en lille forberedelse nu, som gør det lettere at handle roligt, når det sker – i stedet for at tage hurtige, dyre beslutninger.', h: 'Planlæg i roligt vejr.' },
+    { t: 'Trin 1: Bufferen', b: 'Byg en buffer på en separat konto. Mange bruger 3 måneders faste udgifter som mål, men start med et mindre beløb – fx én måned. Hold også lidt kontanter derhjemme, hvis digitale betalinger skulle svigte i en periode.', h: 'Buffer på separat konto – ikke på lønkontoen.' },
+    { t: 'Trin 2: Krise-budgettet', b: 'Skriv ned, hvad du absolut skal betale hver måned (bolig, mad, forsikring, transport, gæld), og hvad du kan sætte på pause (abonnementer, opsparing, fritid). Så ved du, hvor længe bufferen rækker, og hvad du skærer først.', h: 'Kend dit "minimumsbudget".' },
+    { t: 'Trin 3: Overblik for dine nærmeste', b: 'Lav en liste over konti, lån, forsikringer, pensioner og vigtige aftaler – men skriv aldrig koder ned på listen. Overvej en fremtidsfuldmagt, så en, du stoler på, kan hjælpe, hvis du ikke selv kan. Tjek testamente og begunstigelser.', h: 'Overblik ja – koder nej.' },
+    { t: 'Trin 4: Hvem ringer du til?', b: 'Skriv numre op: bank (også spærring af kort), a-kasse, fagforening, forsikringsselskab, udlejer/realkredit og evt. gratis gældsrådgivning. Ved betalingsproblemer: Kontakt kreditorerne tidligt og aftal en plan.', h: 'Ring tidligt – før rykkerne kommer.' }
+  ],
+  quiz: [
+    { q: 'Hvor bør bufferen stå?', o: ['På en separat konto', 'I aktier', 'På lønkontoen sammen med alt det andet'], a: 0, x: 'En separat konto mindsker fristelsen og giver overblik.' },
+    { q: 'Hvad hører IKKE hjemme på din overbliksliste?', o: ['Navne på banker og forsikringer', 'Dine koder', 'Kontaktnumre'], a: 1, x: 'Skriv aldrig koder ned på listen.' },
+    { q: 'Hvad er et minimumsbudget?', o: ['De udgifter, du absolut skal betale i en krise', 'Et budget uden mad', 'Et lån'], a: 0, x: 'Det viser, hvor længe bufferen rækker.' },
+    { q: 'Hvad gør en fremtidsfuldmagt?', o: ['Lader en, du stoler på, hjælpe, hvis du ikke selv kan', 'Giver dig et lån', 'Erstatter et testamente'], a: 0, x: 'Den træder i kraft, hvis du ikke længere selv kan varetage dine forhold.' }
   ] }
 );

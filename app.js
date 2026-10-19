@@ -187,6 +187,7 @@ const ROUTES = {
   skole: { title: 'Økonomiskolen', ico: '🎓', render: renderSkole },
   renter: { title: 'Renters rente', ico: '🧮', render: renderRenter },
   hvadnu: { title: 'Hvad nu hvis', ico: '🔮', render: renderHvadnu },
+  inflation: { title: 'Personlig inflation', ico: '🧺', render: renderInflation },
   indstillinger: { title: 'Indstillinger', ico: '⚙️', render: renderIndstillinger },
   mere: { title: 'Mere', ico: '☰', render: renderMere, hidden: true }
 };
@@ -198,7 +199,7 @@ function renderNav() {
   const r = route();
   $('#sideNav').innerHTML = Object.entries(ROUTES).filter(([, v]) => !v.hidden).map(([k, v]) =>
     `<a class="nav-link ${k === r ? 'active' : ''}" href="#/${k}"><span class="ico">${v.ico}</span>${v.title}</a>`).join('');
-  const moreActive = ['budget', 'jobs', 'aarsoversigt', 'formue', 'abonnementer', 'sparetips', 'skole', 'renter', 'hvadnu', 'indstillinger', 'mere'].includes(r);
+  const moreActive = ['budget', 'jobs', 'aarsoversigt', 'formue', 'abonnementer', 'sparetips', 'skole', 'renter', 'hvadnu', 'inflation', 'indstillinger', 'mere'].includes(r);
   $('#bottomNav').innerHTML = `
     <a href="#/overblik" class="${r === 'overblik' ? 'active' : ''}"><span class="ico">📊</span>Overblik</a>
     <a href="#/posteringer" class="${r === 'posteringer' ? 'active' : ''}"><span class="ico">🧾</span>Poster</a>
@@ -998,6 +999,86 @@ function quizPick(id, k) {
   const y = window.scrollY; render(); window.scrollTo({ top: y });
 }
 
+/* ---------- Visning: Personlig inflation ---------- */
+const DST_CPI = { period: 'september 2026', from: 'september 2025', total: 2.2, url: 'https://www.dst.dk/da/Statistik/emner/oekonomi/prisindeks/forbrugerprisindeks', table: 'PRIS01' };
+// App-kategori → DST-varegruppe (ændring ift. samme måned året før, pct., september 2026)
+const PI_MAP = {
+  'c-bolig': ['04.1 Faktisk husleje', 2.5], 'c-el': ['04.5 El, gas og brændsel', -0.5], 'c-forsikring': ['12 Forsikring og finansielle tjenester', 2.1],
+  'c-abonnement': ['09 Fritid, sport og kultur', 2.7], 'c-telefon': ['08 Information og kommunikation', 3.7], 'c-mad': ['01 Fødevarer og drikkevarer', -2.1],
+  'c-ude': ['11.1 Restaurationstjenester', 2.7], 'c-transport': ['07 Transport', 7.7], 'c-sundhed': ['06 Sundhed', 1.4], 'c-shopping': ['03 Beklædning og fodtøj', -0.6],
+  'c-fritid': ['09 Fritid, sport og kultur', 2.7], 'c-andet': ['00 Forbrugerprisindeks i alt', 2.2]
+};
+const PI_EXCL = { 'c-fag': 'Kontingenter indgår ikke i forbrugerprisindekset' };
+const pct1 = n => (n > 0 ? '+' : n < 0 ? '−' : '') + nf1.format(Math.abs(n)) + ' %';
+function piData() {
+  const now = curMonth(), months = Array.from({ length: 12 }, (_, i) => addMonths(now, -(i + 1)));
+  const tx = S.transactions.filter(t => t.type === 'expense' && months.some(m => t.date.startsWith(m)));
+  const withData = months.filter(m => tx.some(t => t.date.startsWith(m)));
+  const by = {}; tx.forEach(t => { by[t.categoryId] = (by[t.categoryId] || 0) + t.amount; });
+  const incl = Object.keys(by).filter(id => !PI_EXCL[id]);
+  const total = sum(incl.map(id => by[id]));
+  const rows = incl.map(id => { const m = PI_MAP[id] || ['00 Forbrugerprisindeks i alt (ingen nær gruppe)', DST_CPI.total]; const w = total ? by[id] / total : 0; return { id, amount: by[id], w, group: m[0], rate: m[1], contrib: w * m[1] }; }).sort((a, b) => b.amount - a.amount);
+  const excl = Object.keys(by).filter(id => PI_EXCL[id]).map(id => ({ id, amount: by[id], why: PI_EXCL[id] }));
+  const personal = sum(rows.map(r => r.contrib));
+  // Eget forbrug år over år: seneste 3 hele måneder mod samme 3 måneder året før
+  const cur3 = [1, 2, 3].map(i => addMonths(now, -i)), prev3 = cur3.map(m => addMonths(m, -12));
+  const has = ms => ms.filter(m => S.transactions.some(t => t.type === 'expense' && t.date.startsWith(m))).length;
+  const first = S.transactions.filter(t => t.type === 'expense').map(t => t.date.slice(0, 7)).sort()[0];
+  let yoy = null;
+  if (has(cur3) >= 2 && has(prev3) >= 2) {
+    const sumBy = ms => { const o = {}; S.transactions.filter(t => t.type === 'expense' && ms.some(m => t.date.startsWith(m))).forEach(t => { o[t.categoryId] = (o[t.categoryId] || 0) + t.amount; }); return o; };
+    const a = sumBy(prev3), b = sumBy(cur3), ids = [...new Set([...Object.keys(a), ...Object.keys(b)])];
+    const both = ids.filter(id => a[id] > 0 && b[id] > 0);
+    yoy = { from: prev3, to: cur3, rows: ids.map(id => ({ id, then: a[id] || 0, now: b[id] || 0 })).filter(r => r.then || r.now).sort((x, y) => (y.now + y.then) - (x.now + x.then)), then: sum(both.map(id => a[id])), now: sum(both.map(id => b[id])), nBoth: both.length };
+  }
+  return { months: withData.length, rows, excl, total, personal, yoy, first, cur3, prev3 };
+}
+function renderInflation() {
+  const d = piData(), enough = d.months >= 3 && d.total > 0;
+  const diff = d.personal - DST_CPI.total;
+  const head = `<div class="card section">
+    <p class="muted small" style="margin-top:0">Din personlige inflation er prisudviklingen på <b>din egen</b> indkøbskurv: dine udgifter fordelt på kategorier de seneste 12 måneder, ganget med Danmarks Statistiks prisændring for den tilsvarende varegruppe (${DST_CPI.from} → ${DST_CPI.period}).</p>
+    <div class="btn-row"><a class="btn btn-sm" href="#/skole/kursus/inflation/1">🎓 Tag minikurset om personlig inflation</a><a class="btn btn-sm btn-ghost" href="${DST_CPI.url}" target="_blank" rel="noopener">Danmarks Statistik ↗</a></div></div>`;
+  if (!enough) {
+    const ex = [['Bolig', 35, 2.5], ['Dagligvarer', 20, -2.1], ['Transport', 10, 7.7], ['Restaurant & café', 10, 2.7], ['Øvrigt', 25, 2.2]];
+    const exRes = sum(ex.map(([, w, r]) => w / 100 * r));
+    return `${head}
+    <div class="card section"><h2>🧺 Ikke nok data endnu</h2>
+      <p>Appen skal bruge udgifter fra mindst 3 af de seneste 12 hele måneder for at beregne din personlige inflation – du har ${d.months}. Importér dine kontoudtog, så regner appen det ud automatisk.</p>
+      <button class="btn btn-primary" data-action="import-csv">🏦 Importér kontoudtog</button>
+      <h3>Sådan beregnes den – et eksempel</h3>
+      <div class="scroll-x"><table class="tbl"><thead><tr><th>Kategori</th><th class="r">Andel af forbrug</th><th class="r">Prisændring</th><th class="r">Bidrag</th></tr></thead>
+      <tbody>${ex.map(([n, w, r]) => `<tr><td>${n}</td><td class="r">${w} %</td><td class="r">${pct1(r)}</td><td class="r">${nf2.format(w / 100 * r)} pp</td></tr>`).join('')}
+      <tr class="tot"><td>I alt</td><td class="r">100 %</td><td></td><td class="r"><b>${pct1(exRes)}</b></td></tr></tbody></table></div>
+      <p class="muted small">Eksemplets andele er opdigtede. Prisændringerne er Danmarks Statistiks tal for ${DST_CPI.period} (år over år).</p></div>`;
+  }
+  const maxW = Math.max(...d.rows.map(r => r.w));
+  const mL = ms => `${monthLabel(ms[ms.length - 1]).split(' ')[0]}–${monthLabel(ms[0])}`;
+  return `
+  <div class="grid kpis pi-kpis section">
+    <div class="card kpi"><div class="label">🧺 Din personlige inflation</div><div class="value ${d.personal > DST_CPI.total ? 'neg' : 'pos'}">${pct1(d.personal)}</div><div class="sub">vægtet efter dit forbrug</div></div>
+    <div class="card kpi"><div class="label">🇩🇰 Officiel inflation</div><div class="value">${pct1(DST_CPI.total)}</div><div class="sub">Danmarks Statistik, ${DST_CPI.period}</div></div>
+    <div class="card kpi"><div class="label">⚖️ Forskel</div><div class="value">${(diff >= 0 ? '+' : '−') + nf1.format(Math.abs(diff))} pp</div><div class="sub">${Math.abs(diff) < 0.3 ? 'tæt på gennemsnittet' : diff > 0 ? 'priserne stiger mere for dig' : 'priserne stiger mindre for dig'}</div></div>
+    <div class="card kpi"><div class="label">📅 Grundlag</div><div class="value">${d.months} mdr.</div><div class="sub">${kr(d.total, false)} i udgifter</div></div>
+  </div>
+  ${head}
+  <div class="card section"><h2>Hvad driver din inflation?</h2>
+    <div class="scroll-x"><table class="tbl pi-tbl"><thead><tr><th>Kategori</th><th class="r">Din andel</th><th>DST-varegruppe</th><th class="r">Prisændring</th><th class="r">Bidrag</th></tr></thead><tbody>
+    ${d.rows.map(r => { const c = cat(r.id); return `<tr><td>${c.emoji} ${esc(c.name)}<div class="pi-bar"><span style="width:${r.w / maxW * 100}%;background:${c.color}"></span></div></td><td class="r">${nf1.format(r.w * 100)} %</td><td class="muted small">${r.group}</td><td class="r ${r.rate > 0 ? 'neg' : 'pos'}">${pct1(r.rate)}</td><td class="r">${(r.contrib >= 0 ? '+' : '−') + nf2.format(Math.abs(r.contrib))} pp</td></tr>`; }).join('')}
+    <tr class="tot"><td>I alt</td><td class="r">100 %</td><td></td><td></td><td class="r"><b>${pct1(d.personal)}</b></td></tr></tbody></table></div>
+    ${d.excl.length ? `<p class="muted small">Ikke medregnet: ${d.excl.map(x => `${cat(x.id).emoji} ${esc(cat(x.id).name)} (${kr(x.amount, false)}) – ${x.why}`).join('; ')}.</p>` : ''}
+    <p class="muted small">Egne kategorier uden en nær varegruppe tæller med den samlede inflation. Prisændringerne er fra ${DST_CPI.from} til ${DST_CPI.period} (Danmarks Statistik, tabel ${DST_CPI.table}) og opdateres ikke automatisk.</p>
+  </div>
+  <div class="card section"><h2>Dit eget forbrug år over år</h2>
+    ${d.yoy ? `<p class="muted small" style="margin-top:0">${mL(d.yoy.to)} sammenlignet med samme måneder året før. Bemærk: Ændringen blander <b>priser og mængde</b> – den er ikke det samme som inflation.</p>
+      <div class="scroll-x"><table class="tbl"><thead><tr><th>Kategori</th><th class="r">${mL(d.yoy.from)}</th><th class="r">${mL(d.yoy.to)}</th><th class="r">Ændring</th></tr></thead><tbody>
+      ${d.yoy.rows.map(r => { const c = cat(r.id), ch = r.then ? (r.now - r.then) / r.then * 100 : null; return `<tr><td>${c.emoji} ${esc(c.name)}</td><td class="r">${kr(r.then, false)}</td><td class="r">${kr(r.now, false)}</td><td class="r ${ch > 0 ? 'neg' : 'pos'}">${ch == null ? 'ny' : pct1(ch)}</td></tr>`; }).join('')}
+      <tr class="tot"><td>I alt <span class="muted small">(${d.yoy.nBoth} kategorier med data begge år)</span></td><td class="r">${kr(d.yoy.then, false)}</td><td class="r">${kr(d.yoy.now, false)}</td><td class="r"><b>${d.yoy.then ? pct1((d.yoy.now - d.yoy.then) / d.yoy.then * 100) : '–'}</b></td></tr></tbody></table></div>`
+    : `<p>Når du har udgifter for de samme måneder to år i træk, viser appen her, hvordan dit forbrug pr. kategori har ændret sig. Det kræver data for ${mL(d.prev3)}${d.first ? ` – dine første udgifter er fra ${monthLabel(d.first)}` : ''}.</p><p class="muted small">Tip: Hent gerne et års kontoudtog ekstra fra netbanken og importér det.</p>`}
+  </div>
+  <p class="muted small tips-note">ℹ️ Beregningen er vejledende og bygger på dine registrerede posteringer. Den er ikke en officiel opgørelse.</p>`;
+}
+
 /* ---------- Visning: Renters rente-beregner ---------- */
 const CALC_DEF = { start: 10000, monthly: 1000, ret: 6, years: 20, cost: 0.5, inc: 0, infl: 2, real: false };
 const CALC_F = [
@@ -1369,7 +1450,7 @@ function openNwUpdateAll() {
 
 /* ---------- Visning: Mere & Indstillinger ---------- */
 function renderMere() {
-  const tiles = [['budget', '🎯', 'Budget', 'Loft pr. kategori'], ['jobs', '💼', 'Mine jobs', 'Samlet & pr. job'], ['aarsoversigt', '📑', 'Årsoversigt til skat', 'Indtægter pr. job'], ['formue', '💎', 'Nettoformue', 'Aktiver minus gæld'], ['abonnementer', '✂️', 'Abonnementsjæger', 'Faste poster & besparelser'], ['sparetips', '💡', 'Sparetips', '20 tips alle burde kende'], ['skole', '🎓', 'Økonomiskolen', `${COURSES.length} minikurser · ${SCHOOL_LESSONS.length} lektioner`], ['renter', '🧮', 'Renters rente', 'Beregner med graf'], ['hvadnu', '🔮', 'Hvad nu hvis', 'Prøv ændringer af'], ['indstillinger', '⚙️', 'Indstillinger', 'Kategorier, backup, import']];
+  const tiles = [['budget', '🎯', 'Budget', 'Loft pr. kategori'], ['jobs', '💼', 'Mine jobs', 'Samlet & pr. job'], ['aarsoversigt', '📑', 'Årsoversigt til skat', 'Indtægter pr. job'], ['formue', '💎', 'Nettoformue', 'Aktiver minus gæld'], ['abonnementer', '✂️', 'Abonnementsjæger', 'Faste poster & besparelser'], ['sparetips', '💡', 'Sparetips', '20 tips alle burde kende'], ['skole', '🎓', 'Økonomiskolen', `${COURSES.length} minikurser · ${SCHOOL_LESSONS.length} lektioner`], ['renter', '🧮', 'Renters rente', 'Beregner med graf'], ['hvadnu', '🔮', 'Hvad nu hvis', 'Prøv ændringer af'], ['inflation', '🧺', 'Personlig inflation', 'Din egen prisudvikling'], ['indstillinger', '⚙️', 'Indstillinger', 'Kategorier, backup, import']];
   return `<div class="more-grid">${tiles.map(([r, e, t, d]) => `<a class="card more-tile" href="#/${r}"><div class="avatar">${e}</div><strong>${t}</strong><span>${d}</span></a>`).join('')}</div>`;
 }
 function renderIndstillinger() {

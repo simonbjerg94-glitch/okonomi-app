@@ -47,3 +47,7 @@ Hosting: upload mappen som den er til en statisk host (GitHub Pages, Netlify, Ve
 
 ## v8
 - 11 nye minikurser (i alt 19) fordelt på sporene Grundlag, Livsfaser, Investering & pension, Selvstændig og Hjem & hverdag: SU og studielån, Din første lejebolig, Flytte sammen – eller gå fra hinanden, Økonomi når I får børn, Arv og testamente, A-kasse og hvis du mister jobbet, Efterløn og pensionsalder, Start en lille virksomhed, Bil eller ingen bil, Grøn økonomi i hjemmet, Snak med børn om penge. Tal er tjekket mod borger.dk, skat.dk, su.dk, bm.dk m.fl. og markeret med årstal.
+
+## v9
+- **Personlig inflation** (`#/inflation`): vægtet inflation ud fra dit eget forbrug de seneste 12 måneder × Danmarks Statistiks prisændring pr. varegruppe (PRIS01, september 2026 år over år; opdateres ikke automatisk) sammenlignet med den officielle inflation (2,2 %). Viser også eget forbrug år over år pr. kategori, når der er data for samme måneder to år i træk – ellers forklaring og regneeksempel.
+- 9 nye minikurser (i alt 28) og nyt spor **Arbejdsliv**: Personlig inflation, Lovlig skatteoptimering, Forhandl din løn, Økonomisk tryghed hvis du bliver syg, Sådan læser du en investeringsfond, Ratepension vs. aldersopsparing vs. livrente, Frynsegoder og beskatning, Køb af andelsbolig eller sommerhus, Din økonomiske nødplan.
