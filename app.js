@@ -77,8 +77,9 @@ const freshState = () => ({
   transactions: [], recurring: [], goals: [], isExample: false
 });
 let S;
-function load() {
-  try { S = JSON.parse(localStorage.getItem(KEY)); } catch (e) { S = null; }
+function load(raw) {
+  try { S = JSON.parse(raw ?? localStorage.getItem(KEY)); } catch (e) { S = null; }
+  if (S && S.enc) throw new Error('Data er krypteret – lås op først');
   if (!S || !Array.isArray(S.categories)) S = freshState();
   S.settings = Object.assign({ theme: 'dark', ptTaxRate: 40, name: 'Simon', subSort: 'amount-desc' }, S.settings || {});
   ['transactions', 'recurring', 'goals'].forEach(k => { if (!Array.isArray(S[k])) S[k] = []; });
@@ -110,7 +111,10 @@ function migrate() {
   return changed;
 }
 function save() {
-  try { localStorage.setItem(KEY, JSON.stringify(S)); }
+  if (!S) return;
+  const txt = JSON.stringify(S);
+  if (typeof lockWrite === 'function' && lockWrite(txt)) return;
+  try { localStorage.setItem(KEY, txt); }
   catch (e) { toast('Kunne ikke gemme – browserens lager er fuldt'); }
 }
 const cat = id => S.categories.find(c => c.id === id) || { id, name: 'Ukendt', emoji: '❔', color: '#64748b', type: 'expense' };
@@ -203,6 +207,8 @@ function renderNav() {
     <a href="#/mere" class="${moreActive ? 'active' : ''}"><span class="ico">☰</span>Mere</a>`;
 }
 function render() {
+  if (!S || (typeof Lock !== 'undefined' && Lock.locked)) return;
+  const lb = $('#lockBtn'); if (lb) lb.hidden = !(typeof lockOn === 'function' && lockOn());
   charts.splice(0).forEach(c => c.destroy());
   const r = route(), def = ROUTES[r];
   renderNav();
@@ -831,6 +837,7 @@ const skoleOpen = new Set(); let skoleScrolled = '';
 document.addEventListener('toggle', e => { const d = e.target; if (d.classList && d.classList.contains('lesson')) d.open ? skoleOpen.add(d.id) : skoleOpen.delete(d.id); }, true);
 function renderSkole() {
   const rd = lessonsRead(), p = routeParts();
+  if (p[1] === 'kursus') return renderCourse(p[2], p[3]);
   const total = SCHOOL_LESSONS.length, nRead = SCHOOL_LESSONS.filter(l => rd.has(l.id)).length;
   const firstOpen = SCHOOL.find(m => modRead(m, rd) < m.lessons.length) || SCHOOL[0];
   const mod = SCHOOL.find(m => m.id === p[1]) || firstOpen;
@@ -843,10 +850,10 @@ function renderSkole() {
   };
   const ext = ([href, label]) => `<a class="btn btn-sm btn-ghost" href="${href}" target="_blank" rel="noopener">${label} ↗</a>`;
   const idx = SCHOOL.indexOf(mod), next = SCHOOL[idx + 1];
-  return `
-  <div class="card tips-head">
+  return `${coursesSection()}
+  <div class="card tips-head section" id="lektioner">
     <div class="tips-hero">
-      <div><h2 style="margin:0">🎓 Økonomiskolen</h2><p class="muted small" style="margin:4px 0 0">${total} korte lektioner om at forstå penge – det, alle burde have lært i skolen.</p></div>
+      <div><h2 style="margin:0">📚 Alle lektioner</h2><p class="muted small" style="margin:4px 0 0">${total} korte lektioner om at forstå penge – det, alle burde have lært i skolen.</p></div>
       <div class="tips-count"><b>${nRead}</b><span>af ${total} læst</span></div>
     </div>
     <div class="progress"><span style="width:${nRead / total * 100}%"></span></div>
@@ -882,6 +889,113 @@ function dagensRaadCard() {
     <div class="main-col"><span class="tag">🎓 Dagens råd · ${l.mod.name}</span><h3>${l.t}</h3><p class="muted small">${l.h || l.b.split('. ')[0] + '.'}</p></div>
     <a class="btn btn-sm" href="${lessonLink(l)}">Læs lektionen →</a>
   </div>`;
+}
+
+/* ---------- Minikurser ---------- */
+const PASS = 0.75;
+const cProg = id => ((S.settings.courses || {})[id]) || {};
+function setCProg(id, patch) { S.settings.courses = S.settings.courses || {}; S.settings.courses[id] = { ...cProg(id), ...patch }; save(); }
+const courseDone = id => !!cProg(id).done;
+const courseLink = (c, part) => `#/skole/kursus/${c.id}${part ? '/' + part : ''}`;
+function courseResume(c) { const p = cProg(c.id); if (p.done) return courseLink(c, 1); if (p.step > c.steps.length) return courseLink(c, 'quiz'); return courseLink(c, Math.max(1, p.step || 1)); }
+function coursePct(c) { const p = cProg(c.id); if (p.done) return 100; const tot = c.steps.length + 1; return Math.round(Math.min(tot - 1, (p.step || 0) - (p.step ? 0 : 0)) / tot * 100); }
+function badgeShelf() {
+  const got = COURSES.filter(c => courseDone(c.id)).length;
+  return `<div class="card section" id="badges"><h2>🏅 Dine badges <span class="muted small" style="font-weight:500">${got} af ${COURSES.length}</span></h2>
+    <div class="badge-grid">${COURSES.map(c => { const p = cProg(c.id); return `<a class="badge ${p.done ? 'got' : ''}" href="${courseResume(c)}" title="${esc(c.t)}">
+      <span class="badge-ico">${p.done ? c.badge.e : '🔒'}</span><b>${c.badge.n}</b><span class="muted small">${p.done ? 'Optjent ' + fmtDate(p.doneAt) : esc(c.t)}</span></a>`; }).join('')}</div></div>`;
+}
+function coursesSection() {
+  const done = COURSES.filter(c => courseDone(c.id)).length;
+  const card = c => { const p = cProg(c.id), pct = coursePct(c); return `<a class="card course-card ${p.done ? 'done' : ''}" href="${courseResume(c)}" data-course="${c.id}">
+      <div class="mod-top"><span class="mod-emoji">${c.e}</span>${p.done ? `<span class="pill ok">${c.badge.e} Klaret</span>` : p.step ? '<span class="pill accent">I gang</span>' : `<span class="pill">${c.steps.length} trin · ${c.quiz.length} spørgsmål</span>`}</div>
+      <strong>${c.t}</strong><span class="muted small">${c.desc}</span>
+      <div class="progress thin"><span style="width:${pct}%"></span></div></a>`; };
+  const tracks = COURSE_TRACKS.map(t => ({ t, list: COURSES.filter(c => c.track === t.id) })).filter(x => x.list.length);
+  return `<div class="card courses-head"><div class="tips-hero"><div><h2 style="margin:0">⚡ Minikurser</h2><p class="muted small" style="margin:4px 0 0">Korte forløb på 5–10 minutter: et par trin, en lille quiz og et badge, når du har klaret den.</p></div>
+    <div class="tips-count"><b>${done}</b><span>af ${COURSES.length} klaret</span></div></div><div class="progress"><span style="width:${done / COURSES.length * 100}%"></span></div></div>
+  ${tracks.map(({ t, list }) => `<div class="track"><h3 class="track-h">${t.e} ${t.name} <span class="muted small">${t.desc}</span></h3><div class="course-grid">${list.map(card).join('')}</div></div>`).join('')}
+  ${badgeShelf()}`;
+}
+let quizRun = null;
+function renderCourse(id, part) {
+  afterRender.skole = null;
+  const c = COURSES.find(x => x.id === id);
+  if (!c) return `<div class="card empty"><div class="emoji">🤷</div><h2>Kurset findes ikke</h2><a class="btn" href="#/skole">← Tilbage til Økonomiskolen</a></div>`;
+  const n = c.steps.length, tot = n + 1;
+  const head = (pos, label) => `<div class="course-top"><a class="btn btn-sm btn-ghost" href="#/skole">← Kurser</a><span class="muted small">${c.e} ${c.t}</span><span class="muted small">${label}</span></div>
+    <div class="progress course-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${tot}" aria-valuenow="${pos}"><span style="width:${pos / tot * 100}%"></span></div>`;
+  const src = (c.src || []).map(([h, l]) => `<a class="btn btn-sm btn-ghost" href="${h}" target="_blank" rel="noopener">${l} ↗</a>`).join('');
+  if (part === 'quiz' || part === 'resultat') {
+    if (!quizRun || quizRun.id !== c.id) quizRun = { id: c.id, i: 0, picked: [] };
+    const q = quizRun;
+    if (part === 'resultat' || q.picked.length === c.quiz.length && q.i >= c.quiz.length) {
+      const prev = cProg(c.id);
+      const score = q.picked.length === c.quiz.length ? q.picked.filter((p, i) => p === c.quiz[i].a).length : (prev.score || 0);
+      const pass = prev.done || score / c.quiz.length >= PASS;
+      return `${head(tot, 'Resultat')}
+      <div class="card section cres ${pass ? 'pass' : ''}">
+        ${pass ? `<div class="badge-big">${c.badge.e}</div><h2>Badge optjent: ${c.badge.n}!</h2><p class="muted">Du fik ${score} af ${c.quiz.length} rigtige og har klaret <b>${c.t}</b>.</p>`
+          : `<div class="badge-big dim">🔁</div><h2>${score} af ${c.quiz.length} rigtige</h2><p class="muted">Du skal have mindst ${Math.ceil(c.quiz.length * PASS)} rigtige for at få badget. Kig trinene igennem og prøv igen – du kan tage quizzen så mange gange, du vil.</p>`}
+        <div class="btn-row" style="justify-content:center">
+          ${pass ? '' : `<button class="btn btn-primary" data-action="quiz-retry" data-id="${c.id}">Prøv quizzen igen</button>`}
+          <a class="btn ${pass ? 'btn-primary' : ''}" href="#/skole">Se alle kurser</a>
+          ${pass ? `<a class="btn" href="#/skole#badges" data-action="show-badges">🏅 Se dine badges</a>` : `<a class="btn btn-ghost" href="${courseLink(c, 1)}">Gennemgå trinene</a>`}
+          ${c.app ? `<a class="btn btn-ghost" href="${c.app[0]}">${c.app[1]}</a>` : ''}
+        </div>
+      </div>`;
+    }
+    const i = Math.min(q.i, c.quiz.length - 1), Q = c.quiz[i], ans = q.picked[i];
+    return `${head(n + (i + (ans != null ? 1 : 0)) / c.quiz.length, `Quiz · ${i + 1} af ${c.quiz.length}`)}
+    <div class="card section cquiz">
+      <span class="tag">❓ Spørgsmål ${i + 1} af ${c.quiz.length}</span>
+      <h2 class="cq">${Q.q}</h2>
+      <div class="qopts">${Q.o.map((o, k) => { const st = ans == null ? '' : k === Q.a ? 'right' : k === ans ? 'wrong' : 'dim'; return `<button class="qopt ${st}" data-action="quiz-pick" data-id="${c.id}" data-k="${k}" ${ans != null ? 'disabled' : ''}><span class="qk">${'ABCD'[k]}</span><span>${o}</span>${st === 'right' ? '<span class="qmark">✓</span>' : st === 'wrong' ? '<span class="qmark">✕</span>' : ''}</button>`; }).join('')}</div>
+      ${ans != null ? `<div class="qexp ${ans === Q.a ? 'ok' : 'bad'}"><b>${ans === Q.a ? '✓ Rigtigt!' : '✕ Ikke helt.'}</b> ${Q.x}</div>
+        <button class="btn btn-primary btn-block" data-action="quiz-next" data-id="${c.id}" style="margin-top:14px">${i + 1 < c.quiz.length ? 'Næste spørgsmål →' : 'Se resultat →'}</button>` : '<p class="muted small" style="margin-top:12px">Vælg et svar – du får forklaringen med det samme.</p>'}
+    </div>`;
+  }
+  const k = Math.max(1, Math.min(n, Number(part) || 1)), st = c.steps[k - 1];
+  const p = cProg(c.id); if (!p.done && (p.step || 0) < k) setCProg(c.id, { step: k, started: p.started || todayISO() });
+  afterRender.skole = () => bindSwipe($('.cstep'), () => { location.hash = k < n ? courseLink(c, k + 1) : courseLink(c, 'quiz'); }, () => { if (k > 1) location.hash = courseLink(c, k - 1); });
+  return `${head(k, `Trin ${k} af ${n}`)}
+  <article class="card section cstep">
+    <span class="tag">${c.e} Trin ${k} af ${n} · ca. 1 min</span>
+    <h2>${st.t}</h2>
+    <p class="cbody">${st.b}</p>
+    ${st.h ? `<p class="les-husk"><b>💡 Husk:</b> ${st.h}</p>` : ''}
+    <div class="cdots">${c.steps.map((_, j) => `<a href="${courseLink(c, j + 1)}" class="${j + 1 === k ? 'on' : j + 1 < k || p.done || (p.step || 0) > j ? 'seen' : ''}" aria-label="Trin ${j + 1}"></a>`).join('')}<a href="${courseLink(c, 'quiz')}" class="q" aria-label="Quiz">?</a></div>
+    <div class="cnav">
+      ${k > 1 ? `<a class="btn" href="${courseLink(c, k - 1)}">← Tilbage</a>` : `<a class="btn btn-ghost" href="#/skole">Alle kurser</a>`}
+      ${k < n ? `<a class="btn btn-primary" href="${courseLink(c, k + 1)}">Næste →</a>` : `<a class="btn btn-primary" href="${courseLink(c, 'quiz')}" data-action="quiz-start" data-id="${c.id}">Tag quizzen →</a>`}
+    </div>
+    <p class="muted small swipe-hint">Swipe til venstre/højre for at bladre.</p>
+  </article>
+  ${k === n && (src || c.app) ? `<div class="btn-row section">${c.app ? `<a class="btn btn-sm" href="${c.app[0]}">${c.app[1]}</a>` : ''}${src}</div>` : ''}
+  <p class="muted small tips-note">ℹ️ Generel undervisning – ikke personlig rådgivning. Tal med årstal kan ændre sig; tjek altid kilden.</p>`;
+}
+function bindSwipe(el, next, prev) {
+  if (!el) return; let x0 = null, y0 = null;
+  el.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+  el.addEventListener('touchend', e => { if (x0 == null) return; const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0; x0 = null;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) (dx < 0 ? next : prev)(); }, { passive: true });
+}
+document.addEventListener('keydown', e => {
+  if (route() !== 'skole' || routeParts()[1] !== 'kursus' || /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '') || $('#modalRoot').innerHTML) return;
+  const p = routeParts(), n = Number(p[3]); if (!n) return; const c = COURSES.find(x => x.id === p[2]); if (!c) return;
+  if (e.key === 'ArrowRight') location.hash = n < c.steps.length ? courseLink(c, n + 1) : courseLink(c, 'quiz');
+  if (e.key === 'ArrowLeft' && n > 1) location.hash = courseLink(c, n - 1);
+});
+function quizPick(id, k) {
+  const c = COURSES.find(x => x.id === id); if (!c || !quizRun || quizRun.id !== id) return;
+  const i = quizRun.i; if (quizRun.picked[i] != null) return;
+  quizRun.picked[i] = k;
+  if (quizRun.picked.filter(x => x != null).length === c.quiz.length) {
+    const score = quizRun.picked.filter((p, j) => p === c.quiz[j].a).length, prev = cProg(id);
+    const pass = score / c.quiz.length >= PASS;
+    setCProg(id, { step: c.steps.length + 1, score, best: Math.max(prev.best || 0, score), attempts: (prev.attempts || 0) + 1, ...(pass && !prev.done ? { done: true, doneAt: todayISO() } : {}) });
+  }
+  const y = window.scrollY; render(); window.scrollTo({ top: y });
 }
 
 /* ---------- Visning: Renters rente-beregner ---------- */
@@ -1255,7 +1369,7 @@ function openNwUpdateAll() {
 
 /* ---------- Visning: Mere & Indstillinger ---------- */
 function renderMere() {
-  const tiles = [['budget', '🎯', 'Budget', 'Loft pr. kategori'], ['jobs', '💼', 'Mine jobs', 'Samlet & pr. job'], ['aarsoversigt', '📑', 'Årsoversigt til skat', 'Indtægter pr. job'], ['formue', '💎', 'Nettoformue', 'Aktiver minus gæld'], ['abonnementer', '✂️', 'Abonnementsjæger', 'Faste poster & besparelser'], ['sparetips', '💡', 'Sparetips', '20 tips alle burde kende'], ['skole', '🎓', 'Økonomiskolen', `${SCHOOL_LESSONS.length} lektioner om penge`], ['renter', '🧮', 'Renters rente', 'Beregner med graf'], ['hvadnu', '🔮', 'Hvad nu hvis', 'Prøv ændringer af'], ['indstillinger', '⚙️', 'Indstillinger', 'Kategorier, backup, import']];
+  const tiles = [['budget', '🎯', 'Budget', 'Loft pr. kategori'], ['jobs', '💼', 'Mine jobs', 'Samlet & pr. job'], ['aarsoversigt', '📑', 'Årsoversigt til skat', 'Indtægter pr. job'], ['formue', '💎', 'Nettoformue', 'Aktiver minus gæld'], ['abonnementer', '✂️', 'Abonnementsjæger', 'Faste poster & besparelser'], ['sparetips', '💡', 'Sparetips', '20 tips alle burde kende'], ['skole', '🎓', 'Økonomiskolen', `${COURSES.length} minikurser · ${SCHOOL_LESSONS.length} lektioner`], ['renter', '🧮', 'Renters rente', 'Beregner med graf'], ['hvadnu', '🔮', 'Hvad nu hvis', 'Prøv ændringer af'], ['indstillinger', '⚙️', 'Indstillinger', 'Kategorier, backup, import']];
   return `<div class="more-grid">${tiles.map(([r, e, t, d]) => `<a class="card more-tile" href="#/${r}"><div class="avatar">${e}</div><strong>${t}</strong><span>${d}</span></a>`).join('')}</div>`;
 }
 function renderIndstillinger() {
@@ -1297,6 +1411,7 @@ function renderIndstillinger() {
       </details>
     </div>
   </div>
+  ${lockSettingsCard()}
   <div class="card section" id="rulesCard"><h2>🧠 Lærte regler <small>${(S.rules || []).length} stk.</small></h2>
     <p class="muted small">Når du retter kategorien for en forretning (under import eller senere), husker appen det og bruger det automatisk næste gang – før de indbyggede regler.</p>
     ${(S.rules || []).length ? `<div class="list">${[...S.rules].sort((a, b) => (b.updated || '').localeCompare(a.updated || '')).map(r => { const c = cat(r.categoryId); const j = job(r.jobId); return `<div class="row">
@@ -2042,8 +2157,14 @@ const actions = {
   'wi-reset': () => { S.settings.whatif = { ...WI_DEF }; save(); render(); },
   'nw-add': el => openNwModal(null, el.dataset.side),
   'nw-edit': el => { const it = nwItems().find(i => i.id === el.dataset.id); it && openNwModal(it); },
-  'nw-update-all': () => openNwUpdateAll()
+  'nw-update-all': () => openNwUpdateAll(),
+  'quiz-start': el => { quizRun = { id: el.dataset.id, i: 0, picked: [] }; location.hash = courseLink({ id: el.dataset.id }, 'quiz'); },
+  'quiz-pick': el => quizPick(el.dataset.id, Number(el.dataset.k)),
+  'quiz-next': el => { if (!quizRun) return; quizRun.i++; const c = COURSES.find(x => x.id === el.dataset.id); if (quizRun.i >= c.quiz.length) { if (cProg(c.id).done && quizRun.picked.filter((p, j) => p === c.quiz[j].a).length / c.quiz.length >= PASS) toast(`Badge optjent: ${c.badge.e} ${c.badge.n}`); location.hash = courseLink(c, 'resultat'); } else render(); },
+  'quiz-retry': el => { quizRun = { id: el.dataset.id, i: 0, picked: [] }; location.hash = courseLink({ id: el.dataset.id }, 'quiz'); render(); },
+  'show-badges': () => { location.hash = '#/skole'; setTimeout(() => $('#badges')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120); }
 };
+Object.assign(actions, lockActions);
 document.addEventListener('click', e => {
   if (e.target.matches('[data-close-overlay]')) { closeSheet(); return; }
   const el = e.target.closest('[data-action]'); if (!el) return;
@@ -2069,6 +2190,7 @@ document.addEventListener('change', async e => {
   if (e.target.dataset.wisub) { const w = wiState(); const sid = e.target.dataset.wisub; w.cancel = e.target.checked ? [...new Set([...w.cancel, sid])] : w.cancel.filter(x => x !== sid); S.settings.whatif = w; save(); updateWhatif(false); }
   if (e.target.dataset.wi && e.target.type !== 'range') e.target.value = nf0.format(wiState()[e.target.dataset.wi] || 0);
   if (id === 'nwGoals') { S.settings.nwGoals = e.target.checked; save(); render(); }
+  if (id === 'autoLock' && Lock.cfg) { saveLockCfg({ ...Lock.cfg, autolock: Number(e.target.value) }); Lock.lastAct = Date.now(); toast('Auto-lås gemt ✓'); }
   if (id === 'importRemind') { S.settings.importReminder = Number(e.target.value); delete S.settings.importSnooze; save(); toast(Number(e.target.value) ? 'Påmindelse gemt ✓' : 'Påmindelse slået fra'); }
   if (id === 'calcReal') { S.settings.calc = { ...calcState(), real: e.target.checked }; save(); updateCalc(true); }
   if (e.target.dataset.lesson) {
@@ -2090,24 +2212,28 @@ document.addEventListener('change', async e => {
       const data = JSON.parse(await readFile(e.target.files[0]));
       if (!Array.isArray(data.categories) || !Array.isArray(data.transactions)) throw new Error('format');
       if (!confirm(`Gendan backup med ${data.transactions.length} posteringer? Dine nuværende data bliver erstattet.`)) return;
-      localStorage.setItem(KEY, JSON.stringify(data)); load(); applyRecurring(); setTheme(S.settings.theme); toast('Backup gendannet ✓');
+      load(JSON.stringify(data)); save(); applyRecurring(); setTheme(S.settings.theme); toast('Backup gendannet ✓');
     } catch (err) { toast('Filen er ikke en gyldig backup'); }
     e.target.value = '';
   }
 });
 function setTheme(t) {
-  S.settings.theme = t; document.documentElement.dataset.theme = t;
+  S.settings.theme = t; document.documentElement.dataset.theme = t; try { localStorage.setItem(TKEY, t); } catch (e) {}
   document.querySelector('meta[name="theme-color"]').setAttribute('content', t === 'dark' ? '#0b0d17' : '#f4f5fb');
   save(); render();
 }
 window.addEventListener('hashchange', render);
 
 /* ---------- Start ---------- */
-load();
-document.documentElement.dataset.theme = S.settings.theme;
-document.querySelector('meta[name="theme-color"]').setAttribute('content', S.settings.theme === 'dark' ? '#0b0d17' : '#f4f5fb');
-applyRecurring();
-render();
+function startApp(raw, first) {
+  load(raw);
+  document.documentElement.dataset.theme = S.settings.theme; try { localStorage.setItem(TKEY, S.settings.theme); } catch (e) {}
+  document.querySelector('meta[name="theme-color"]').setAttribute('content', S.settings.theme === 'dark' ? '#0b0d17' : '#f4f5fb');
+  applyRecurring();
+  render();
+}
+afterRender.indstillinger = () => { const b = $('#pkAdd'); if (b) passkeyAvailable().then(ok => { if (!ok) b.outerHTML = '<span class="muted small">Ikke understøttet her</span>'; }); };
+lockBoot(startApp);
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 }

@@ -35,3 +35,12 @@ Hosting: upload mappen som den er til en statisk host (GitHub Pages, Netlify, Ve
 - **Årsoversigt til skat** (`#/aarsoversigt`): indtægter pr. job/type, fradragsrelevante poster og tjekliste pr. år, CSV-eksport og printvenlig udgave. Vejledende – tjek altid på skat.dk.
 - **Hvad nu hvis** (`#/hvadnu`): ændr indkomst, ny fast udgift, engangsudgift, opsig abonnementer og skær i kategorier – se effekt på månedligt overskud og mål.
 - **Nettoformue** (`#/formue`): aktiver og gæld med historik, graf og "Opdatér alle".
+
+## v7
+- **App-lås** (Indstillinger → App-lås): PIN-kode på 4–8 cifre (PBKDF2-SHA256, 600.000 iterationer, tilfældigt salt) i sin egen nøgle `okonomi.lock` (ikke med i backup).
+  - Valgfri **kryptering** af alle data med AES-256-GCM (nøglen udledes af PIN-koden og ligger kun i hukommelsen; ny IV ved hver gemning). Glemt PIN = data kan kun gendannes fra backup – det advares der tydeligt om.
+  - Uden kryptering er låsen en privatlivsskærm; her kan **Face ID / fingeraftryk** (passkey/WebAuthn på enheden) bruges som genvej.
+  - Auto-lås: straks når appen skjules, efter 1/5/15 min. inaktivitet eller aldrig. "🔒" i topbaren låser med det samme.
+  - Forkerte forsøg giver stigende ventetid – data slettes aldrig automatisk. "Glemt PIN?": gendan fra backup-fil eller slet alt (kræver at man skriver SLET).
+  - Temaet gemmes i `okonomi.theme`, så låseskærmen kan vises i rigtigt tema før noget andet.
+- **Minikurser** i Økonomiskolen (`#/skole`, data i `kurser.js`): 8 korte forløb i spor med trin (swipe/piletaster), quiz med forklaringer, fremdriftslinje og badges. Fremskridt gemmes i `settings.courses` og kommer med i backuppen.

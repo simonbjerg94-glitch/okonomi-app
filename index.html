@@ -15,7 +15,8 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="stylesheet" href="styles.css">
   <script>
-    try { const t = JSON.parse(localStorage.getItem('okonomi.v1') || '{}')?.settings?.theme; if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+    try { const t = localStorage.getItem('okonomi.theme') || JSON.parse(localStorage.getItem('okonomi.v1') || '{}')?.settings?.theme; if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t; } catch (e) {}
+    try { if (localStorage.getItem('okonomi.lock')) document.documentElement.classList.add('locked'); } catch (e) {}
   </script>
 </head>
 <body>
@@ -44,6 +45,7 @@
             <span id="monthLabel">–</span>
             <button class="icon-btn" data-action="next-month" aria-label="Næste måned">›</button>
           </div>
+          <button class="icon-btn" id="lockBtn" data-action="lock-now" aria-label="Lås appen" title="Lås appen" hidden>🔒</button>
           <button class="icon-btn theme-btn" data-action="toggle-theme" aria-label="Skift tema" title="Skift lyst/mørkt tema"></button>
         </div>
       </header>
@@ -55,12 +57,15 @@
   <nav class="bottom-nav" id="bottomNav"></nav>
   <button class="fab" data-action="quick-add" aria-label="Ny postering">＋</button>
 
+  <div id="lockScreen" class="lock-screen" hidden></div>
   <div id="modalRoot"></div>
   <div id="toast" role="status"></div>
 
   <input type="file" id="csvFile" accept=".csv,.txt,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" hidden>
   <script src="vendor/chart.umd.min.js"></script>
   <script src="skole.js"></script>
+  <script src="kurser.js"></script>
+  <script src="lock.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

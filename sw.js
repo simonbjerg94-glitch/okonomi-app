@@ -1,6 +1,6 @@
-const CACHE = 'okonomi-v6';
+const CACHE = 'okonomi-v7';
 const ASSETS = [
-  './', './index.html', './styles.css', './app.js', './skole.js', './vendor/chart.umd.min.js', './vendor/xlsx.mini.min.js',
+  './', './index.html', './styles.css', './app.js', './skole.js', './kurser.js', './lock.js', './vendor/chart.umd.min.js', './vendor/xlsx.mini.min.js',
   './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png',
   './icons/icon-maskable-512.png', './icons/apple-touch-icon.png'
 ];
