@@ -177,6 +177,8 @@ const ROUTES = {
   jobs: { title: 'Mine jobs', ico: '💼', render: renderJobs, month: true },
   abonnementer: { title: 'Abonnementsjæger', ico: '✂️', render: renderAbonnementer },
   sparetips: { title: 'Sparetips', ico: '💡', render: renderSparetips },
+  skole: { title: 'Økonomiskolen', ico: '🎓', render: renderSkole },
+  renter: { title: 'Renters rente', ico: '🧮', render: renderRenter },
   indstillinger: { title: 'Indstillinger', ico: '⚙️', render: renderIndstillinger },
   mere: { title: 'Mere', ico: '☰', render: renderMere, hidden: true }
 };
@@ -188,7 +190,7 @@ function renderNav() {
   const r = route();
   $('#sideNav').innerHTML = Object.entries(ROUTES).filter(([, v]) => !v.hidden).map(([k, v]) =>
     `<a class="nav-link ${k === r ? 'active' : ''}" href="#/${k}"><span class="ico">${v.ico}</span>${v.title}</a>`).join('');
-  const moreActive = ['budget', 'jobs', 'abonnementer', 'sparetips', 'indstillinger', 'mere'].includes(r);
+  const moreActive = ['budget', 'jobs', 'abonnementer', 'sparetips', 'skole', 'renter', 'indstillinger', 'mere'].includes(r);
   $('#bottomNav').innerHTML = `
     <a href="#/overblik" class="${r === 'overblik' ? 'active' : ''}"><span class="ico">📊</span>Overblik</a>
     <a href="#/posteringer" class="${r === 'posteringer' ? 'active' : ''}"><span class="ico">🧾</span>Poster</a>
@@ -343,6 +345,7 @@ function renderOverblik() {
     <span class="tag">✨ Månedens overblik</span>
     ${monthSummary(selMonth).map(t => `<p>${t}</p>`).join('')}
   </div>
+  ${dagensRaadCard()}
 
   <div class="grid cols-2 section">
     <div class="card">
@@ -812,9 +815,172 @@ function renderSparetips() {
   <p class="muted small tips-note">ℹ️ Tipsene er generelle og ikke personlig økonomisk rådgivning. Regler, satser og fradrag ændrer sig – tjek altid de aktuelle regler hos fx skat.dk, og søg rådgivning, hvis du er i tvivl om din egen situation.</p>`;
 }
 
+/* ---------- Visning: Økonomiskolen ---------- */
+const lessonsRead = () => new Set(S.settings.lessonsRead || []);
+const modRead = (m, rd = lessonsRead()) => m.lessons.filter(l => rd.has(l.id)).length;
+function lessonOfDay(d = new Date()) {
+  const n = Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())) / 864e5);
+  return SCHOOL_LESSONS[((n * 7) % SCHOOL_LESSONS.length + SCHOOL_LESSONS.length) % SCHOOL_LESSONS.length];
+}
+const lessonLink = l => `#/skole/${l.mod.id}/${l.id}`;
+const skoleOpen = new Set(); let skoleScrolled = '';
+document.addEventListener('toggle', e => { const d = e.target; if (d.classList && d.classList.contains('lesson')) d.open ? skoleOpen.add(d.id) : skoleOpen.delete(d.id); }, true);
+function renderSkole() {
+  const rd = lessonsRead(), p = routeParts();
+  const total = SCHOOL_LESSONS.length, nRead = SCHOOL_LESSONS.filter(l => rd.has(l.id)).length;
+  const firstOpen = SCHOOL.find(m => modRead(m, rd) < m.lessons.length) || SCHOOL[0];
+  const mod = SCHOOL.find(m => m.id === p[1]) || firstOpen;
+  const openId = p[2] || '';
+  afterRender.skole = () => {
+    const el = openId && skoleScrolled !== location.hash && document.getElementById('les-' + openId);
+    skoleScrolled = location.hash;
+    if (el) setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+    const on = $('.mod-card.on'); if (on && on.parentElement.scrollWidth > on.parentElement.clientWidth) on.parentElement.scrollLeft = on.offsetLeft - 16;
+  };
+  const ext = ([href, label]) => `<a class="btn btn-sm btn-ghost" href="${href}" target="_blank" rel="noopener">${label} ↗</a>`;
+  const idx = SCHOOL.indexOf(mod), next = SCHOOL[idx + 1];
+  return `
+  <div class="card tips-head">
+    <div class="tips-hero">
+      <div><h2 style="margin:0">🎓 Økonomiskolen</h2><p class="muted small" style="margin:4px 0 0">${total} korte lektioner om at forstå penge – det, alle burde have lært i skolen.</p></div>
+      <div class="tips-count"><b>${nRead}</b><span>af ${total} læst</span></div>
+    </div>
+    <div class="progress"><span style="width:${nRead / total * 100}%"></span></div>
+  </div>
+  <div class="mod-grid">${SCHOOL.map(m => { const r = modRead(m, rd), n = m.lessons.length; return `
+    <a class="card mod-card ${m === mod ? 'on' : ''} ${r === n ? 'done' : ''}" href="#/skole/${m.id}">
+      <div class="mod-top"><span class="mod-emoji">${m.e}</span>${r === n ? '<span class="pill ok">✓</span>' : ''}</div>
+      <strong>${m.name}</strong><span class="muted small">${r} af ${n} læst</span>
+      <div class="progress thin"><span style="width:${r / n * 100}%"></span></div>
+    </a>`; }).join('')}</div>
+  <div class="card section mod-body">
+    <div class="mod-head"><span class="mod-emoji big">${mod.e}</span><div class="main-col"><h2 style="margin:0">${mod.name}</h2><span class="muted small">${mod.desc} · ${modRead(mod, rd)} af ${mod.lessons.length} læst</span></div></div>
+    <div class="lessons">${mod.lessons.map((l, i) => `
+      <details class="lesson ${rd.has(l.id) ? 'read' : ''}" id="les-${l.id}" ${l.id === openId || skoleOpen.has('les-' + l.id) ? 'open' : ''}>
+        <summary><span class="les-n">${rd.has(l.id) ? '✓' : i + 1}</span><span class="les-t">${l.t}</span><span class="les-chev">⌄</span></summary>
+        <div class="les-body">
+          <p>${l.b}</p>
+          ${l.h ? `<p class="les-husk"><b>💡 Husk:</b> ${l.h}</p>` : ''}
+          <div class="tip-foot">
+            ${l.app ? `<a class="btn btn-sm" href="${l.app[0]}">${l.app[1]}</a>` : ''}${l.src ? ext(l.src) : ''}
+            <label class="tip-check"><input type="checkbox" data-lesson="${l.id}" ${rd.has(l.id) ? 'checked' : ''}><span>${rd.has(l.id) ? 'Læst ✓' : 'Marker som læst'}</span></label>
+          </div>
+        </div>
+      </details>`).join('')}</div>
+    ${next ? `<a class="btn btn-block" style="margin-top:14px" href="#/skole/${next.id}">Næste modul: ${next.e} ${next.name} →</a>` : ''}
+  </div>
+  <p class="muted small tips-note">ℹ️ Økonomiskolen er generel undervisning og ikke personlig økonomisk, skattemæssig eller investeringsrådgivning. Regler og satser ændrer sig – tal med årstal er markeret med kilde og kan være forældede. Tjek altid de aktuelle regler hos fx skat.dk, borger.dk og forbrug.dk, og søg rådgivning om din egen situation.</p>`;
+}
+function dagensRaadCard() {
+  const l = lessonOfDay();
+  return `<div class="card section daily">
+    <div class="daily-ico">${l.mod.e}</div>
+    <div class="main-col"><span class="tag">🎓 Dagens råd · ${l.mod.name}</span><h3>${l.t}</h3><p class="muted small">${l.h || l.b.split('. ')[0] + '.'}</p></div>
+    <a class="btn btn-sm" href="${lessonLink(l)}">Læs lektionen →</a>
+  </div>`;
+}
+
+/* ---------- Visning: Renters rente-beregner ---------- */
+const CALC_DEF = { start: 10000, monthly: 1000, ret: 6, years: 20, cost: 0.5, inc: 0, infl: 2, real: false };
+const CALC_F = [
+  { k: 'start', l: 'Startbeløb', u: 'kr', min: 0, max: 1000000, step: 1000 },
+  { k: 'monthly', l: 'Månedlig opsparing', u: 'kr', min: 0, max: 50000, step: 100 },
+  { k: 'ret', l: 'Forventet årligt afkast', u: '%', min: 0, max: 15, step: 0.1 },
+  { k: 'years', l: 'Antal år', u: 'år', min: 1, max: 50, step: 1 },
+  { k: 'cost', l: 'Årlige omkostninger', u: '%', min: 0, max: 3, step: 0.05, opt: true },
+  { k: 'inc', l: 'Årlig stigning i månedlig opsparing', u: '%', min: 0, max: 10, step: 0.5, opt: true }
+];
+const calcState = () => ({ ...CALC_DEF, ...(S.settings.calc || {}) });
+function compound(c, withCost = true) {
+  const a = c.ret / 100, cost = withCost ? c.cost / 100 : 0;
+  const net = (1 + a) * (1 - cost) - 1;            // afkast efter omkostninger pr. år
+  const r = Math.pow(1 + net, 1 / 12) - 1;         // tilsvarende månedligt afkast
+  let v = c.start, dep = c.start; const rows = [];
+  for (let y = 1; y <= c.years; y++) {
+    const m = c.monthly * Math.pow(1 + c.inc / 100, y - 1), v0 = v;
+    for (let i = 0; i < 12; i++) v = (v + m) * (1 + r);   // indskud i starten af hver måned
+    dep += m * 12;
+    rows.push({ y, m, depYear: m * 12, dep, gain: v - dep, gainYear: v - v0 - m * 12, v, real: v / Math.pow(1 + c.infl / 100, y) });
+  }
+  return rows;
+}
+const rangePct = (f, v) => Math.max(0, Math.min(100, (v - f.min) / (f.max - f.min) * 100));
+const fmtIn = (f, v) => f.u === 'kr' ? nf0.format(v) : String(v).replace('.', ',');
+function renderRenter() {
+  const c = calcState();
+  afterRender.renter = () => updateCalc(true);
+  return `
+  <div class="grid calc-grid">
+    <div class="card calc-in">
+      <h2>🧮 Renters rente-beregner</h2>
+      ${CALC_F.map(f => `
+        <div class="cf ${f.opt ? 'opt' : ''}">
+          <div class="cf-head"><label for="cn-${f.k}">${f.l}${f.opt ? ' <span class="muted small">(valgfri)</span>' : ''}</label>
+            <span class="cf-num"><input class="input" id="cn-${f.k}" data-calc="${f.k}" inputmode="decimal" value="${fmtIn(f, c[f.k])}"><span>${f.u}</span></span></div>
+          <input type="range" class="range" id="cr-${f.k}" data-calc="${f.k}" min="${f.min}" max="${f.max}" step="${f.step}" value="${c[f.k]}" style="--p:${rangePct(f, c[f.k])}%" aria-label="${f.l}">
+        </div>`).join('')}
+      <label class="switch"><span>Vis i dagens købekraft <span class="muted small">(inflation <input class="input mini-in" id="cn-infl" data-calc="infl" inputmode="decimal" value="${fmtIn({ u: '%' }, c.infl)}"> % om året)</span></span><input type="checkbox" id="calcReal" ${c.real ? 'checked' : ''}></label>
+      <button class="btn btn-sm btn-ghost" data-action="calc-reset" style="margin-top:6px">↺ Nulstil til standard</button>
+    </div>
+    <div class="calc-out">
+      <div class="grid calc-kpis" id="calcKpis"></div>
+      <div class="card"><h2>Udvikling <small id="calcSub"></small></h2><div class="chart-box"><canvas id="chCalc"></canvas></div></div>
+    </div>
+  </div>
+  <div class="card section"><h2>År for år</h2><div class="scroll-x" id="calcTable"></div></div>
+  <details class="card section tip-how"><summary><strong>Sådan regner vi</strong></summary>
+    <p class="muted small">Det årlige afkast omregnes til et tilsvarende månedligt afkast, og den månedlige opsparing indsættes i starten af hver måned, hvorefter hele beløbet forrentes. Årlige omkostninger trækkes fra afkastet hvert år. Stiger den månedlige opsparing, sker det én gang om året. Købekraft viser værdien omregnet til dagens priser med den inflation, du angiver. Skat er ikke medregnet – den afhænger af, hvor og hvordan pengene er placeret.</p>
+  </details>
+  <p class="muted small tips-note">ℹ️ Beregningen er en illustration af renters rente – ikke et løfte om afkast. Virkelige afkast svinger fra år til år og kan være negative, og tidligere afkast er ingen garanti for fremtidige. Skat er ikke medregnet. Det er ikke investeringsrådgivning. <a href="#/skole/invest">🎓 Lær mere i Økonomiskolen</a></p>`;
+}
+function updateCalc(full) {
+  const c = calcState(), rows = compound(c), base = compound(c, false), last = rows[rows.length - 1], lb = base[base.length - 1];
+  const R = c.real, val = r => R ? r.real : r.v, defl = (x, y) => R ? x / Math.pow(1 + c.infl / 100, y) : x;
+  const costLoss = lb.v - last.v;
+  $('#calcKpis').innerHTML = `
+    <div class="card kpi hero"><div class="label">Slutværdi efter ${c.years} år${R ? ' · dagens kroner' : ''}</div><div class="value">${kr(val(last), false)}</div><div class="sub">${R ? `${kr(last.v, false)} i fremtidige kroner` : `${nf1.format(last.v / Math.max(1, last.dep))} × det indskudte`}</div></div>
+    <div class="card kpi"><div class="label">💰 Samlede indskud</div><div class="value">${kr(last.dep, false)}</div><div class="sub">start + ${kr(c.monthly, false)}/md.${c.inc ? ` (+${String(c.inc).replace('.', ',')} %/år)` : ''}</div></div>
+    <div class="card kpi"><div class="label">📈 Samlet afkast</div><div class="value pos">${kr(last.gain, false)}</div><div class="sub">${last.v ? pct(last.gain / last.v * 100) : '–'} af slutværdien</div></div>
+    <div class="card kpi"><div class="label">🧾 Omkostninger koster</div><div class="value ${costLoss > 0 ? 'neg' : ''}">${c.cost ? '−' + kr(costLoss, false) : '0 kr'}</div><div class="sub">${c.cost ? `ved ${String(c.cost).replace('.', ',')} % om året` : 'ingen omkostninger valgt'}</div></div>`;
+  $('#calcSub').textContent = `${String(c.ret).replace('.', ',')} % afkast${c.cost ? ` − ${String(c.cost).replace('.', ',')} % omk.` : ''}`;
+  $('#calcTable').innerHTML = `<table class="tbl"><thead><tr><th>År</th><th class="r">Indskud i året</th><th class="r">Indskudt i alt</th><th class="r">Afkast i året</th><th class="r">Afkast i alt</th><th class="r">Værdi</th>${R ? '<th class="r">Købekraft</th>' : ''}</tr></thead><tbody>
+    <tr><td>0</td><td class="r">${kr(c.start, false)}</td><td class="r">${kr(c.start, false)}</td><td class="r">–</td><td class="r">–</td><td class="r">${kr(c.start, false)}</td>${R ? `<td class="r">${kr(c.start, false)}</td>` : ''}</tr>
+    ${rows.map(r => `<tr><td>${r.y}</td><td class="r">${kr(r.depYear, false)}</td><td class="r">${kr(r.dep, false)}</td><td class="r pos">${kr(r.gainYear, false)}</td><td class="r">${kr(r.gain, false)}</td><td class="r"><b>${kr(r.v, false)}</b></td>${R ? `<td class="r">${kr(r.real, false)}</td>` : ''}</tr>`).join('')}</tbody></table>`;
+  const labels = rows.map(r => 'År ' + r.y);
+  const dep = rows.map(r => Math.round(defl(r.dep, r.y))), gain = rows.map(r => Math.round(defl(r.v, r.y) - defl(r.dep, r.y)));
+  const noCost = base.map(r => Math.round(defl(r.v, r.y)));
+  const ch = charts.find(x => x.canvas && x.canvas.id === 'chCalc');
+  if (ch && !full) {
+    ch.data.labels = labels; ch.data.datasets[0].data = dep; ch.data.datasets[1].data = gain; ch.data.datasets[2].data = c.cost ? noCost : []; ch.update('none'); return;
+  }
+  if (ch) { ch.destroy(); charts.splice(charts.indexOf(ch), 1); }
+  mkChart('chCalc', {
+    type: 'bar',
+    data: { labels, datasets: [
+      { label: 'Indskud', data: dep, backgroundColor: 'rgba(124,92,255,.85)', borderRadius: 4, stack: 's', order: 2 },
+      { label: 'Afkast', data: gain, backgroundColor: 'rgba(34,211,154,.85)', borderRadius: 4, stack: 's', order: 2 },
+      { label: 'Uden omkostninger', type: 'line', data: c.cost ? noCost : [], borderColor: 'rgba(255,181,71,.9)', borderDash: [5, 4], borderWidth: 2, pointRadius: 0, fill: false, order: 1 }
+    ] },
+    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 12, usePointStyle: true, filter: (it, d) => d.datasets[it.datasetIndex].data.length > 0 } } },
+      scales: { x: { stacked: true, grid: { display: false }, ticks: { maxTicksLimit: 10, autoSkip: true } }, y: { stacked: true, ticks: { callback: tickKr } } } }
+  });
+}
+function setCalc(k, raw, from) {
+  const f = CALC_F.find(x => x.k === k) || { k: 'infl', min: 0, max: 20 };
+  let v = typeof raw === 'number' ? raw : parseFloat(String(raw).replace(/\./g, f.u === 'kr' ? '' : '.').replace(',', '.').replace(/[^\d.\-]/g, ''));
+  if (!isFinite(v)) return;
+  v = Math.max(f.min, Math.min(k === 'start' || k === 'monthly' ? 1e8 : f.max, v));
+  if (k === 'years') v = Math.round(v);
+  S.settings.calc = { ...calcState(), [k]: v }; save();
+  const rng = $('#cr-' + k); if (rng) { if (from !== 'range') rng.value = v; rng.style.setProperty('--p', rangePct(f, v) + '%'); }
+  const num = $('#cn-' + k); if (num && from !== 'num') num.value = fmtIn(f, v);
+  updateCalc(false);
+}
+
 /* ---------- Visning: Mere & Indstillinger ---------- */
 function renderMere() {
-  const tiles = [['budget', '🎯', 'Budget', 'Loft pr. kategori'], ['jobs', '💼', 'Mine jobs', 'Samlet & pr. job'], ['abonnementer', '✂️', 'Abonnementsjæger', 'Faste poster & besparelser'], ['sparetips', '💡', 'Sparetips', '20 tips alle burde kende'], ['indstillinger', '⚙️', 'Indstillinger', 'Kategorier, backup, import']];
+  const tiles = [['budget', '🎯', 'Budget', 'Loft pr. kategori'], ['jobs', '💼', 'Mine jobs', 'Samlet & pr. job'], ['abonnementer', '✂️', 'Abonnementsjæger', 'Faste poster & besparelser'], ['sparetips', '💡', 'Sparetips', '20 tips alle burde kende'], ['skole', '🎓', 'Økonomiskolen', `${SCHOOL_LESSONS.length} lektioner om penge`], ['renter', '🧮', 'Renters rente', 'Beregner med graf'], ['indstillinger', '⚙️', 'Indstillinger', 'Kategorier, backup, import']];
   return `<div class="more-grid">${tiles.map(([r, e, t, d]) => `<a class="card more-tile" href="#/${r}"><div class="avatar">${e}</div><strong>${t}</strong><span>${d}</span></a>`).join('')}</div>`;
 }
 function renderIndstillinger() {
@@ -1579,7 +1745,8 @@ const actions = {
   'export-csv-all': () => download(`posteringer-${todayISO()}.csv`, toCSV(S.transactions), 'text/csv;charset=utf-8'),
   'export-csv-month': () => download(`posteringer-${selMonth}.csv`, toCSV(stats(selMonth).tx), 'text/csv;charset=utf-8'),
   'import-csv': () => $('#csvFile').click(),
-  'tip-filter': el => { tipFilter = el.dataset.f; render(); }
+  'tip-filter': el => { tipFilter = el.dataset.f; render(); },
+  'calc-reset': () => { S.settings.calc = { ...CALC_DEF }; save(); render(); }
 };
 document.addEventListener('click', e => {
   if (e.target.matches('[data-close-overlay]')) { closeSheet(); return; }
@@ -1592,6 +1759,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet()
 document.addEventListener('input', e => {
   if (e.target.id === 'txSearch') { txFilter.q = e.target.value; clearTimeout(window._sq); window._sq = setTimeout(render, 220); }
   if (e.target.id === 'jobRate' || e.target.id === 'jobRateNum') { const j = job(e.target.dataset.id); if (!j) return; j.taxRate = Math.max(0, Math.min(100, Number(e.target.value) || 0)); save(); clearTimeout(window._pr); window._pr = setTimeout(render, e.target.id === 'jobRate' ? 120 : 500); }
+  if (e.target.dataset && e.target.dataset.calc) setCalc(e.target.dataset.calc, e.target.type === 'range' ? Number(e.target.value) : e.target.value, e.target.type === 'range' ? 'range' : 'num');
   if (e.target.id === 'nameInput') { S.settings.name = e.target.value.trim() || 'Simon'; save(); }
 });
 document.addEventListener('change', async e => {
@@ -1599,6 +1767,14 @@ document.addEventListener('change', async e => {
   if (id === 'txType') { txFilter.type = e.target.value; render(); }
   if (id === 'txCat') { txFilter.cat = e.target.value; render(); }
   if (id === 'subSort') { S.settings.subSort = e.target.value; save(); render(); }
+  if (e.target.dataset.calc && e.target.type !== 'range') { const f = CALC_F.find(x => x.k === e.target.dataset.calc) || { u: '%' }; e.target.value = fmtIn(f, calcState()[e.target.dataset.calc]); }
+  if (id === 'calcReal') { S.settings.calc = { ...calcState(), real: e.target.checked }; save(); updateCalc(true); }
+  if (e.target.dataset.lesson) {
+    const set = lessonsRead(); e.target.checked ? set.add(e.target.dataset.lesson) : set.delete(e.target.dataset.lesson);
+    S.settings.lessonsRead = [...set]; save(); const y = window.scrollY; render(); window.scrollTo({ top: y });
+    if (e.target.checked) { const l = SCHOOL_LESSONS.find(x => x.id === e.target.dataset.lesson), m = l && l.mod; const r = m ? modRead(m) : 0;
+      toast(set.size === SCHOOL_LESSONS.length ? 'Alle lektioner læst – du er uddannet! 🎓' : m && r === m.lessons.length ? `Modul klaret: ${m.e} ${m.name} ✓` : `Læst ✓ · ${set.size} af ${SCHOOL_LESSONS.length}`); }
+  }
   if (e.target.dataset.tip) {
     const set = new Set(S.settings.tipsDone || []); e.target.checked ? set.add(e.target.dataset.tip) : set.delete(e.target.dataset.tip);
     S.settings.tipsDone = [...set]; save(); const y = window.scrollY; render(); window.scrollTo({ top: y });

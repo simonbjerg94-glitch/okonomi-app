@@ -144,7 +144,7 @@ a { color: var(--accent-2); }
 .summary { background: linear-gradient(135deg, rgba(124,92,255,.14), rgba(0,194,255,.08)); }
 .summary p { margin: 0 0 8px; line-height: 1.55; color: var(--text); font-size: 14.5px; }
 .summary p:last-child { margin-bottom: 0; }
-.summary .tag { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--accent-2); margin-bottom: 8px; }
+.summary .tag, .daily .tag { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--accent-2); margin-bottom: 8px; }
 
 /* Lists */
 .list { display: flex; flex-direction: column; }
@@ -435,3 +435,73 @@ select.mini { background: var(--input); border: 1px solid var(--border); border-
 .tip.done .tip-check { border-color: rgba(34,211,154,.5); color: var(--pos); background: rgba(34,211,154,.10); }
 .tips-note { margin: 16px 2px 4px; }
 @media (max-width: 520px) { .tip-check { margin-left: 0; width: 100%; justify-content: center; } }
+
+/* Økonomiskolen */
+.mod-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 14px; }
+@media (min-width: 760px) { .mod-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 1100px) { .mod-grid { grid-template-columns: repeat(5, 1fr); } }
+.mod-card { margin: 0; padding: 14px; display: flex; flex-direction: column; gap: 4px; text-decoration: none; color: var(--text); transition: border-color .2s, transform .15s; }
+.mod-card:active { transform: scale(.98); }
+.mod-card strong { font-size: 14px; line-height: 1.25; }
+.mod-card.on { border-color: var(--accent-1); background: rgba(124,92,255,.10); }
+.mod-card.done:not(.on) { border-color: rgba(34,211,154,.4); }
+.mod-top { display: flex; justify-content: space-between; align-items: flex-start; }
+.mod-emoji { font-size: 24px; line-height: 1; }
+.mod-emoji.big { font-size: 34px; width: 56px; height: 56px; display: grid; place-items: center; border-radius: 16px; background: rgba(124,92,255,.14); flex-shrink: 0; }
+.progress.thin { height: 5px; margin-top: 6px; }
+.mod-head { display: flex; gap: 14px; align-items: center; margin-bottom: 12px; }
+.lessons { display: flex; flex-direction: column; gap: 8px; }
+.lesson { border: 1px solid var(--border); border-radius: 14px; background: var(--input); overflow: hidden; scroll-margin-top: 80px; }
+.lesson summary { list-style: none; display: flex; align-items: center; gap: 12px; padding: 14px; cursor: pointer; font-weight: 600; }
+.lesson summary::-webkit-details-marker { display: none; }
+.les-n { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 700; background: rgba(124,92,255,.18); color: #b6a6ff; flex-shrink: 0; }
+.lesson.read .les-n { background: rgba(34,211,154,.18); color: var(--pos); }
+.les-t { flex: 1; line-height: 1.3; }
+.lesson.read .les-t { color: var(--muted); }
+.les-chev { color: var(--muted); transition: transform .2s; font-size: 18px; }
+.lesson[open] .les-chev { transform: rotate(180deg); }
+.les-body { padding: 0 14px 14px 54px; display: flex; flex-direction: column; gap: 10px; }
+.les-body p { margin: 0; line-height: 1.6; font-size: 14.5px; }
+.les-husk { padding: 10px 12px; border-radius: 10px; background: rgba(124,92,255,.10); border-left: 3px solid var(--accent-1); font-size: 14px !important; }
+@media (max-width: 520px) { .les-body { padding-left: 14px; } }
+.daily { display: flex; align-items: center; gap: 14px; }
+.daily h3 { margin: 6px 0 2px; font-size: 16px; }
+.daily p { margin: 0; }
+.daily-ico { font-size: 28px; width: 52px; height: 52px; display: grid; place-items: center; border-radius: 16px; background: rgba(124,92,255,.14); flex-shrink: 0; }
+@media (max-width: 520px) { .daily { flex-wrap: wrap; } .daily .btn { width: 100%; } }
+
+/* Renters rente */
+.calc-grid { grid-template-columns: 1fr; align-items: start; }
+@media (min-width: 980px) { .calc-grid { grid-template-columns: minmax(320px, 400px) 1fr; } }
+.calc-in h2 { margin-bottom: 14px; }
+.cf { margin-bottom: 16px; }
+.cf-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; }
+.cf-head label { font-size: 13.5px; font-weight: 600; }
+.cf-num { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
+.cf-num .input { width: 110px; text-align: right; padding: 7px 10px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.mini-in { width: 54px !important; padding: 3px 6px !important; text-align: right; display: inline-block; }
+.range { width: 100%; appearance: none; -webkit-appearance: none; height: 8px; border-radius: 999px; background: var(--input); outline: none; margin: 0; }
+.range::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: var(--grad); border: 3px solid var(--card-solid); box-shadow: 0 2px 8px rgba(0,0,0,.35); cursor: pointer; }
+.range::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--accent-1); border: 3px solid var(--card-solid); cursor: pointer; }
+.cf.opt .cf-head label { color: var(--muted); }
+.calc-out { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.calc-kpis { grid-template-columns: repeat(2, 1fr); }
+@media (min-width: 1500px) { .calc-kpis { grid-template-columns: repeat(4, 1fr); } }
+.calc-kpis .kpi { margin: 0; }
+.calc-kpis .value { font-size: 19px; }
+#chCalc { min-height: 0; }
+.calc-out .chart-box { height: 300px; }
+.tip-how summary { cursor: pointer; }
+.tip-how p { margin: 10px 0 0; line-height: 1.6; }
+@media (max-width: 759px) {
+  .mod-grid { display: flex; overflow-x: auto; gap: 10px; padding-bottom: 6px; scroll-snap-type: x proximity; scrollbar-width: none; }
+  .mod-grid::-webkit-scrollbar { display: none; }
+  .mod-card { flex: 0 0 148px; scroll-snap-align: start; padding: 12px; }
+  .mod-card strong { font-size: 13.5px; }
+}
+.range { background: linear-gradient(90deg, var(--accent-1) 0%, var(--accent-2) var(--p, 0%), var(--input) var(--p, 0%)); }
+@media (max-width: 979px) { .calc-out { display: contents; } .calc-kpis { order: -1; } }
+.daily .btn { text-decoration: none; }
+@media (max-width: 520px) { .daily .main-col { flex: 1 1 calc(100% - 66px); } .daily-ico { width: 44px; height: 44px; font-size: 22px; align-self: flex-start; } }
+@media (max-width: 899px) { .calc-kpis .kpi:last-child { grid-column: span 2; } }
+.daily .main-col { flex: 1; min-width: 0; }

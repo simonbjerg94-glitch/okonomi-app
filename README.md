@@ -25,3 +25,7 @@ Hosting: upload mappen som den er til en statisk host (GitHub Pages, Netlify, Ve
 
 ### v4 – Sparetips
 - Ny side “Sparetips” (sidemenu + Mere) med 20 generelle danske sparetips, filter pr. emne (Hverdag, Bolig & energi, Skat, Opsparing, Gæld, Ikke gjort), “Marker som gjort ✓” gemt lokalt (`settings.tipsDone`, med i backup) og fremskridtstæller. Tips linker til Abonnementsjæger, Opsparingsmål, Budget, Mine jobs og officielle kilder. Cache `okonomi-v4`.
+
+### v5 – Økonomiskolen og Renters rente
+- “Økonomiskolen”: 50 lektioner i 10 moduler (Grundlæggende, Skat, Renters rente & investering, Pension, Gæld & lån, Bolig, Forsikring, Forbrugerret, Pengepsykologi, Sikkerhed & svindel). Indholdet ligger i `skole.js`. “Marker som læst” gemmes i `settings.lessonsRead` (med i backup), med fremskridt pr. modul. “Dagens råd” på Overblik skifter lektion hver dag.
+- “Renters rente”: beregner med startbeløb, månedlig opsparing, afkast, antal år, valgfri årlige omkostninger og årlig stigning i opsparingen, købekraft (inflation), stablet graf (indskud/afkast), nøgletal og tabel år for år. Indstillingerne gemmes i `settings.calc`. Kun en illustration – ikke et løfte om afkast. Cache `okonomi-v5`.
