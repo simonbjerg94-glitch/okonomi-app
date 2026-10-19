@@ -44,3 +44,6 @@ Hosting: upload mappen som den er til en statisk host (GitHub Pages, Netlify, Ve
   - Forkerte forsøg giver stigende ventetid – data slettes aldrig automatisk. "Glemt PIN?": gendan fra backup-fil eller slet alt (kræver at man skriver SLET).
   - Temaet gemmes i `okonomi.theme`, så låseskærmen kan vises i rigtigt tema før noget andet.
 - **Minikurser** i Økonomiskolen (`#/skole`, data i `kurser.js`): 8 korte forløb i spor med trin (swipe/piletaster), quiz med forklaringer, fremdriftslinje og badges. Fremskridt gemmes i `settings.courses` og kommer med i backuppen.
+
+## v8
+- 11 nye minikurser (i alt 19) fordelt på sporene Grundlag, Livsfaser, Investering & pension, Selvstændig og Hjem & hverdag: SU og studielån, Din første lejebolig, Flytte sammen – eller gå fra hinanden, Økonomi når I får børn, Arv og testamente, A-kasse og hvis du mister jobbet, Efterløn og pensionsalder, Start en lille virksomhed, Bil eller ingen bil, Grøn økonomi i hjemmet, Snak med børn om penge. Tal er tjekket mod borger.dk, skat.dk, su.dk, bm.dk m.fl. og markeret med årstal.

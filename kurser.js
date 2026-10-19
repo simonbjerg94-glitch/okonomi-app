@@ -129,3 +129,169 @@ const COURSES = [
     { q: 'Du har overført penge til en svindler. Hvad er det første, du gør?', o: ['Venter til mandag', 'Ringer til banken med det samme', 'Skriver til svindleren'], a: 1, x: 'Jo hurtigere banken reagerer, jo større er chancen for at stoppe pengene.' }
   ] }
 ];
+COURSES.push(
+{ id: 'su', track: 'livsfaser', e: '🎓', t: 'SU og studielån', desc: 'Klip, fribeløb og hvad lånet koster', badge: { e: '📘', n: 'Studieøkonom' },
+  src: [['https://www.su.dk/', 'su.dk'], ['https://www.su.dk/su-laan/naar-du-skal-betale-laan-tilbage/renter-paa-dit-su-laan', 'su.dk: Renter på SU-lån']],
+  steps: [
+    { t: 'Klip er en begrænset ressource', b: 'På en videregående uddannelse har du SU svarende til uddannelsens normerede tid plus 12 måneder ekstra. Hver måned med SU bruger ét klip. Bruger du klip på en uddannelse, du stopper på, mangler de senere – så tænk dig om, før du skifter.', h: 'Klip brugt er klip væk – også ved studieskift.' },
+    { t: 'Fribeløbet', b: 'Du må tjene et vist beløb ved siden af SU – dit fribeløb. Tjener du mere, skal du betale for meget modtaget SU tilbage med et tillæg. Du kan fravælge SU i måneder, hvor du tjener meget, så hæves dit fribeløb for resten af året. Se dit fribeløb på su.dk.', h: 'Hold øje med fribeløbet – og fravælg SU i travle arbejdsmåneder.' },
+    { t: 'SU-lån: billigt, men ikke gratis', b: 'Mens du studerer, er renten på SU-lån 4 % om året. Efter uddannelsen er renten diskontoen plus et tillæg på højst 1 % – fra 1. oktober 2026 er den 3,10 % (su.dk). Renterne lægges til gælden og vokser med renters rente.', h: 'SU-lån: 4 % under uddannelse (su.dk, 2026).' },
+    { t: 'Tilbagebetaling', b: 'Du begynder at betale tilbage den 1. januar, når der er gået et år efter udgangen af det år, du blev færdig. Lånet skal typisk være betalt over 7–15 år. Kan du ikke betale en periode, kan du søge om nedsat ydelse eller henstand – men renterne løber.', h: 'Sæt tilbagebetalingen ind i dit første "rigtige" budget.' },
+    { t: 'Lån kun det, du skal bruge', b: 'Lav et studiebudget: husleje, mad, transport, bøger og telefon. Lån kun til det, der mangler. Hver 1.000 kr. du låner som studerende, skal betales tilbage med renter, når du starter dit arbejdsliv – samtidig med fx første bolig.', h: 'Lån med et formål – ikke "fordi man kan".' }
+  ],
+  quiz: [
+    { q: 'Hvad er renten på SU-lån, mens du studerer?', o: ['0 %', '4 %', '10 %'], a: 1, x: 'Under uddannelsen er renten fast 4 % om året (su.dk).' },
+    { q: 'Hvad sker der, hvis du tjener mere end dit fribeløb?', o: ['Intet', 'Du skal betale for meget modtaget SU tilbage med et tillæg', 'Du mister alle dine klip'], a: 1, x: 'Overskrider du fribeløbet, skal du betale SU tilbage – med tillæg.' },
+    { q: 'Hvordan kan du få et højere fribeløb resten af året?', o: ['Ved at fravælge SU i nogle måneder', 'Ved at tage et SU-lån', 'Ved at skifte bank'], a: 0, x: 'Måneder uden SU øger dit fribeløb.' },
+    { q: 'Hvor længe har du typisk til at betale SU-lånet tilbage?', o: ['1–2 år', '7–15 år', '40 år'], a: 1, x: 'Tilbagebetalingen strækker sig typisk over 7–15 år.' }
+  ] },
+{ id: 'lejebolig', track: 'livsfaser', e: '🏢', t: 'Din første lejebolig', desc: 'Depositum, syn, boligstøtte og dine rettigheder', badge: { e: '🗝️', n: 'Lejer med styr' },
+  src: [['https://www.borger.dk/bolig-og-flytning/Lejebolig', 'borger.dk: Lejebolig'], ['https://www.borger.dk/bolig-og-flytning/boligstoette', 'borger.dk: Boligstøtte']],
+  steps: [
+    { t: 'Hvad koster det at flytte ind?', b: 'Ved indflytning kan udlejer kræve <b>depositum</b> på højst 3 måneders leje og <b>forudbetalt leje</b> for højst 3 måneder (lejeloven). Dertil kommer første måneds husleje. Så du kan skulle betale op til 7 måneders leje på én gang – plus flytning.', h: 'Op til 3 mdr. depositum + 3 mdr. forudbetalt leje (lejeloven).' },
+    { t: 'Læs kontrakten', b: 'Tjek husleje, a conto-beløb til varme/vand, opsigelsesvarsel, husorden, og om der står noget om istandsættelse ved fraflytning. Er lejemålet tidsbegrænset, skal der være en god grund. Er du i tvivl, så spørg en lejerforening, før du skriver under.', h: 'Skriv aldrig under på noget, du ikke forstår.' },
+    { t: 'Indflytningssyn – dit bevis', b: 'Gå boligen grundigt igennem ved indflytning, og tag billeder med dato af alt: ridser, pletter, huller og fejl. Udlejere med flere lejemål skal holde et indflytningssyn og lave en rapport. Mangler, du opdager senere, skal du typisk påtale skriftligt inden for 14 dage.', h: 'Billeder ved indflytning sparer penge ved fraflytning.' },
+    { t: 'Boligstøtte', b: 'Du kan måske få boligstøtte til huslejen. Det afhænger af husstandens indkomst, formue, huslejen, boligens størrelse og hvor mange I bor. Du søger på borger.dk, og Udbetaling Danmark udbetaler. Prøv beregneren, før du siger nej tak.', h: 'Søg boligstøtte via borger.dk – det tager få minutter.' },
+    { t: 'Hvis I bliver uenige', b: 'Er du uenig om husleje, a conto-regnskab eller istandsættelse, kan du klage til huslejenævnet i din kommune. Gem al kommunikation skriftligt. Ved fraflytning: Opsig skriftligt efter kontraktens varsel, og vær med til fraflytningssynet.', h: 'Huslejenævnet kan hjælpe – det er billigt og tilgængeligt.' }
+  ],
+  quiz: [
+    { q: 'Hvor meget depositum kan udlejer højst kræve?', o: ['1 måneds leje', '3 måneders leje', '6 måneders leje'], a: 1, x: 'Efter lejeloven højst 3 måneders leje.' },
+    { q: 'Hvorfor er billeder ved indflytning vigtige?', o: ['De er pæne at have', 'De dokumenterer boligens stand, så du ikke betaler for andres skader', 'De er et krav fra Skattestyrelsen'], a: 1, x: 'Billeder med dato er dit bevis ved fraflytningssynet.' },
+    { q: 'Hvor søger du boligstøtte?', o: ['Hos udlejer', 'På borger.dk', 'I banken'], a: 1, x: 'Du søger på borger.dk, og Udbetaling Danmark behandler sagen.' },
+    { q: 'Hvem kan du klage til, hvis du er uenig med udlejer om fx husleje?', o: ['Huslejenævnet', 'Forbrugerombudsmanden', 'Skattestyrelsen'], a: 0, x: 'Huslejenævnet i kommunen behandler mange typer lejesager.' }
+  ] },
+{ id: 'samliv', track: 'livsfaser', e: '💑', t: 'Flytte sammen – eller gå fra hinanden', desc: 'Fælles økonomi, særeje og samejeaftale', badge: { e: '🤝', n: 'Fair fordeling' },
+  src: [['https://www.familieretshuset.dk/', 'Familieretshuset'], ['https://www.borger.dk/familie-og-boern/Samliv-aegteskab-og-registreret-partnerskab', 'borger.dk: Samliv']],
+  steps: [
+    { t: 'Tre måder at dele på', b: '<b>Alt fælles</b>: al indkomst i én pulje. <b>Fælles konto efter indkomst</b>: hver betaler den samme procentdel af sin indkomst til faste udgifter. <b>Alt separat</b>: hver betaler sit, og I deler regningerne. Der er ingen rigtig model – det vigtige er, at I har talt om det og begge synes, det er fair.', h: 'Talt om økonomi = færre konflikter senere.' },
+    { t: 'Ugift samlevende: loven beskytter ikke', b: 'Som ugifte samlevende har I ingen automatisk arveret efter hinanden og ingen ret til en del af den andens formue ved et brud. Vil I sikre hinanden, kræver det testamente og at I indsætter hinanden som begunstiget på pension og livsforsikring.', h: 'Samlevende arver ikke hinanden uden testamente.' },
+    { t: 'Samejeaftale', b: 'Køber I bolig eller noget dyrt sammen uden at være gift, så lav en samejeaftale: Hvem har betalt hvad, hvem ejer hvor stor en del, og hvad sker der, hvis I går fra hinanden – hvem kan blive boende, og hvordan værdien opgøres.', h: 'Lav aftalen, mens I er gode venner.' },
+    { t: 'Gift: delingsformue og særeje', b: 'Gifte har som udgangspunkt <b>delingsformue</b>: ved skilsmisse deles nettoformuen som hovedregel ligeligt. Med en <b>ægtepagt</b> kan I aftale særeje for noget eller det hele. Ægtepagten skal tinglyses for at være gyldig. Gæld er som udgangspunkt personlig – men har I fælles lån, hæfter I begge for hele beløbet.', h: 'Fælles lån = I hæfter begge for det hele.' },
+    { t: 'Hvis I går fra hinanden', b: 'Lav et overblik over fælles konti, lån, abonnementer og ting. Luk eller fordel fælles konti og kort, og ret adresse og forskudsopgørelse. Separation og skilsmisse søges via Familieretshuset, som også hjælper med aftaler om børn.', h: 'Overblik først – så aftaler.' }
+  ],
+  quiz: [
+    { q: 'Arver ugifte samlevende automatisk hinanden?', o: ['Ja, efter 2 år', 'Nej – det kræver testamente', 'Ja, hvis de har børn'], a: 1, x: 'Ugifte samlevende har ingen arveret efter loven. Testamente er nødvendigt.' },
+    { q: 'Hvad er en samejeaftale?', o: ['En aftale om, hvem der ejer hvad af noget, I ejer sammen', 'En ægtepagt', 'Et lån'], a: 0, x: 'Den beskriver ejerandele og hvad der sker ved et brud.' },
+    { q: 'Hvad er udgangspunktet for gifte i Danmark?', o: ['Særeje', 'Delingsformue', 'Ingen fælles formue'], a: 1, x: 'Delingsformue er udgangspunktet. Særeje kræver en tinglyst ægtepagt.' },
+    { q: 'I har et fælles lån og går fra hinanden. Hvem hæfter?', o: ['Den, der tjener mest', 'I hæfter begge for hele lånet', 'Ingen'], a: 1, x: 'Ved fælles lån hæfter begge for hele gælden over for banken.' }
+  ] },
+{ id: 'boern', track: 'livsfaser', e: '👶', t: 'Økonomi når I får børn', desc: 'Barsel, børne- og ungeydelse og opsparing', badge: { e: '🍼', n: 'Familieøkonom' },
+  src: [['https://www.borger.dk/familie-og-boern/Familieydelser-oversigt/Boerne-ungeydelse', 'borger.dk: Børne- og ungeydelse'], ['https://www.borger.dk/familie-og-boern/barsel-oversigt', 'borger.dk: Barsel']],
+  steps: [
+    { t: 'Barsel i grove træk', b: 'Bor forældrene sammen ved fødslen, har hver som udgangspunkt ret til 24 ugers orlov med barselsdagpenge efter fødslen. Som lønmodtager er 11 af ugerne øremærket (de kan ikke overdrages), og resten kan overdrages. Mor har desuden ret til graviditetsorlov før fødslen. Tjek din overenskomst – mange har løn under dele af barslen.', h: '24 uger hver – 11 øremærket (borger.dk).' },
+    { t: 'Indkomsten falder – planlæg det', b: 'Barselsdagpenge er ofte lavere end din løn. Regn ud, hvad I får udbetalt i hver periode af barslen, og læg et budget for hele orloven. Spar op på forhånd, hvis I kan, og tal om, hvordan I fordeler orloven og økonomien.', h: 'Lav et barselsbudget måned for måned.' },
+    { t: 'Børne- og ungeydelse', b: 'I 2026 er hele ydelsen pr. barn: 0–2 år 5.370 kr. pr. kvartal, 3–6 år 4.248 kr. pr. kvartal, 7–14 år 3.342 kr. pr. kvartal og 15–17 år 1.114 kr. pr. måned (borger.dk). Bor forældrene sammen, får hver halvdelen. Ydelsen nedsættes ved høj indkomst.', h: 'Ydelsen kommer automatisk – tjek den på borger.dk.' },
+    { t: 'Børneopsparing', b: 'På en børneopsparing må der i alt indskydes 6.000 kr. om året og højst 72.000 kr. i alt (2026). Afkastet er skattefrit, og pengene er bundet i mindst 7 år. Der kan kun være én pr. barn. Investerer man pengene, er der risiko, men også større forventet afkast over mange år.', h: 'Børneopsparing: 6.000 kr./år, 72.000 kr. i alt (2026, skat.dk).' },
+    { t: 'De nye faste udgifter', b: 'Børn koster bl.a. daginstitution, mad, tøj, udstyr og fritid. Undersøg om I kan få økonomisk fripladstilskud til daginstitution – det afhænger af husstandens indkomst. Tjek også forsikringer, testamente og begunstigelser, når familien vokser.', h: 'Nyt barn = opdater budget, forsikring og testamente.' }
+  ],
+  quiz: [
+    { q: 'Hvor mange ugers orlov efter fødslen har hver forælder som udgangspunkt?', o: ['12', '24', '52'], a: 1, x: 'Hver forælder har som udgangspunkt 24 uger (borger.dk).' },
+    { q: 'Hvad betyder "øremærket" orlov?', o: ['Den kan ikke overdrages til den anden forælder', 'Den er ulønnet', 'Den skal holdes før fødslen'], a: 0, x: 'Øremærkede uger bortfalder, hvis forælderen ikke selv holder dem.' },
+    { q: 'Hvor meget må der højst indskydes på en børneopsparing om året (2026)?', o: ['3.000 kr.', '6.000 kr.', '20.000 kr.'], a: 1, x: '6.000 kr. om året og 72.000 kr. i alt.' },
+    { q: 'Hvordan udbetales ydelsen for 15–17-årige?', o: ['Månedligt', 'Kvartalsvis', 'Én gang om året'], a: 0, x: 'Ungeydelsen for 15–17-årige udbetales hver måned.' }
+  ] },
+{ id: 'arv', track: 'livsfaser', e: '📜', t: 'Arv og testamente', desc: 'Hvem arver, tvangsarv og boafgift', badge: { e: '📜', n: 'Arveklog' },
+  src: [['https://skat.dk/borger/skatter-og-afgifter-ved-doedsfald', 'skat.dk: Skat ved dødsfald'], ['https://www.borger.dk/familie-og-boern/Arv-og-testamente', 'borger.dk: Arv og testamente']],
+  steps: [
+    { t: 'Hvem arver uden testamente?', b: 'Uden testamente følger arven loven: Er du gift og har børn, arver ægtefællen halvdelen og børnene deles om den anden halvdel. Har du ingen ægtefælle, arver børnene alt. Ugifte samlevende arver <b>intet</b> efter loven.', h: 'Ingen testamente = loven bestemmer.' },
+    { t: 'Tvangsarv', b: 'En fjerdedel af det, ægtefællen og børn (livsarvinger) skulle have arvet efter loven, er tvangsarv – den kan du ikke testamentere væk. Resten kan du frit bestemme over i et testamente, fx til en samlever, venner eller velgørenhed.', h: 'Tvangsarv: 1/4 af den lovbestemte arv.' },
+    { t: 'Sådan laver du et testamente', b: 'Et testamente oprettes typisk for en notar (notartestamente) eller med to vitterlighedsvidner. Notartestamentet opbevares centralt, så det ikke bliver væk. Testamentet er især vigtigt for samlevende, sammenbragte familier og hvis du vil skævdele.', h: 'Samlevende? Testamente er nærmest et must.' },
+    { t: 'Boafgift', b: 'Arv til børn, børnebørn, forældre og samlevende, der har boet sammen med afdøde i mindst 2 år, beskattes med 15 % boafgift af det, der overstiger bundfradraget på 392.300 kr. (2026). Ægtefæller betaler ingen boafgift. Andre arvinger betaler desuden tillægsboafgift.', h: 'Boafgift: 15 % over 392.300 kr. (2026, skat.dk).' },
+    { t: 'Tjek begunstigelsen', b: 'Udbetalinger fra pension og livsforsikring følger ofte ikke testamentet, men den begunstigelse, du har indsat hos pensionsselskabet. Tjek på PensionsInfo, hvem der står som begunstiget – især hvis du er samlevende, er blevet skilt eller har fået børn.', h: 'Pension følger begunstigelsen – ikke nødvendigvis testamentet.' }
+  ],
+  quiz: [
+    { q: 'Hvad arver en ugift samlever uden testamente?', o: ['Halvdelen', 'En fjerdedel', 'Intet'], a: 2, x: 'Samlevende har ingen arveret efter loven.' },
+    { q: 'Hvor stor er tvangsarven?', o: ['1/4 af den lovbestemte arv', 'Halvdelen', 'Det hele'], a: 0, x: 'En fjerdedel er tvangsarv – resten kan du testamentere frit.' },
+    { q: 'Hvilken boafgift betaler en ægtefælle?', o: ['0 %', '15 %', '36,25 %'], a: 0, x: 'Ægtefæller betaler ikke boafgift (skat.dk).' },
+    { q: 'Hvad bestemmer, hvem der får udbetalt din pension ved død?', o: ['Altid testamentet', 'Typisk begunstigelsen hos pensionsselskabet', 'Kommunen'], a: 1, x: 'Pension og livsforsikring følger begunstigelsen. Tjek den på PensionsInfo.' }
+  ] },
+{ id: 'akasse', track: 'livsfaser', e: '🛟', t: 'A-kasse og hvis du mister jobbet', desc: 'Dagpenge, krav og de første skridt', badge: { e: '🛟', n: 'Sikkerhedsnet' },
+  src: [['https://www.borger.dk/arbejde-dagpenge-ferie/Dagpenge-kontanthjaelp-og-sygedagpenge/Arbejdsloeshedsdagpenge', 'borger.dk: Dagpenge'], ['https://bm.dk/satser/satser-for-2026/dagpenge', 'bm.dk: Satser 2026']],
+  steps: [
+    { t: 'Hvad er en a-kasse?', b: 'En a-kasse er en arbejdsløshedsforsikring. Er du medlem og bliver ledig, kan du få dagpenge. A-kasse og fagforening er to forskellige ting – du kan være medlem af den ene uden den anden. Kontingentet til a-kassen kan trækkes fra i skat uden loft.', h: 'A-kasse ≠ fagforening.' },
+    { t: 'Hvad kan du få?', b: 'Dagpenge udgør 90 % af din tidligere indkomst (efter AM-bidrag), dog højst 22.041 kr. om måneden før skat for fuldtidsforsikrede (2026). I de første 3 måneder kan der være et beskæftigelsestillæg. Har du en høj løn, falder din indkomst altså markant ved ledighed.', h: 'Maks. 22.041 kr./md. før skat (2026, bm.dk).' },
+    { t: 'Krav for at få dagpenge', b: 'Du skal bl.a. have været medlem i mindst ét år, have haft en vis indkomst de seneste 3 år (286.632 kr. for fuldtidsforsikrede i 2026), være tilmeldt som arbejdssøgende fra første ledige dag og stå til rådighed for arbejdsmarkedet (borger.dk).', h: 'Meld dig ledig på jobnet.dk første dag.' },
+    { t: 'Efterlønsbidrag', b: 'Gennem a-kassen kan du betale efterlønsbidrag. Det giver mulighed for at gå på efterløn nogle år før folkepensionsalderen, hvis du opfylder kravene. Beslutningen har betydning for mange år frem – se kurset om efterløn.', h: 'Efterlønsbidrag betales via a-kassen.' },
+    { t: 'Hvis du bliver opsagt', b: 'Kontakt a-kassen og evt. fagforeningen med det samme. Tjek dit opsigelsesvarsel og om du har ret til fratrædelsesgodtgørelse. Tilpas budgettet til dagpengeniveau, og brug din buffer frem for dyre lån. Mange kan også tegne en lønsikring for ekstra dækning.', h: 'Ring til a-kassen dag ét – ikke dag 30.' }
+  ],
+  quiz: [
+    { q: 'Hvor meget kan dagpenge højst udgøre for fuldtidsforsikrede i 2026 (uden tillæg)?', o: ['15.000 kr./md.', '22.041 kr./md.', '35.000 kr./md.'], a: 1, x: 'Maksimum er 22.041 kr. om måneden før skat (bm.dk, 2026).' },
+    { q: 'Hvor stor en del af din tidligere indkomst kan dagpenge udgøre?', o: ['50 %', '90 %, op til et loft', '100 %'], a: 1, x: '90 % af indkomsten efter AM-bidrag – dog højst satsen.' },
+    { q: 'Hvornår skal du melde dig ledig?', o: ['Første ledige dag', 'Efter en måned', 'Når opsparingen er brugt'], a: 0, x: 'Du skal være tilmeldt som arbejdssøgende fra første ledige dag.' },
+    { q: 'Er a-kasse og fagforening det samme?', o: ['Ja', 'Nej'], a: 1, x: 'A-kassen er en forsikring. Fagforeningen arbejder for dine løn- og arbejdsforhold.' }
+  ] },
+{ id: 'efterloen', track: 'invest', e: '⏳', t: 'Efterløn og pensionsalder', desc: 'Hvornår kan du stoppe – og hvad kræver det?', badge: { e: '⏳', n: 'Tidsplanlægger' },
+  src: [['https://www.borger.dk/pension-og-efterloen/Efterloen-fleksydelse-delpension/efterloen/foer-du-gaar-paa-efterloen', 'borger.dk: Efterløn'], ['https://www.borger.dk/pension-og-efterloen', 'borger.dk: Pension']],
+  steps: [
+    { t: 'Din folkepensionsalder', b: 'Folkepensionsalderen afhænger af dit fødselsår og følger levealderen. Ifølge borger.dk er den fx 69 år for personer født 1967–1970 og vejledende 70 år for personer født 1971 eller senere – den kan blive forhøjet yderligere.', h: 'Født 1971 eller senere: vejledende 70 år (borger.dk).' },
+    { t: 'Hvad er efterløn?', b: 'Efterløn er en mulighed for at trække sig tilbage op til 3 år før folkepensionsalderen. Det kræver, at du er medlem af en a-kasse og har betalt efterlønsbidrag i mange år (typisk 30 år), og at du opfylder en række krav, når du går på efterløn.', h: 'Efterløn = op til 3 år før folkepension.' },
+    { t: 'Hvor meget og modregning', b: 'Den højeste efterlønssats svarer til den maksimale dagpengesats (22.041 kr. om måneden før skat i 2026, 91 %-satsen er 20.057 kr.). Din private pension kan blive modregnet i efterlønnen, så regn på det, før du beslutter dig.', h: 'Pension kan modregnes i efterlønnen.' },
+    { t: 'Bliv ved og få en præmie', b: 'Opfylder du betingelserne for efterløn, men bliver ved med at arbejde, kan du optjene en skattefri præmie. Det kan betale sig at få et efterlønsbevis, så du kender dine muligheder.', h: 'Spørg a-kassen om efterlønsbevis og skattefri præmie.' },
+    { t: 'Skal du betale efterlønsbidrag?', b: 'Bidraget koster hvert år og binder dig i mange år, men kan give frihed til at stoppe tidligere. Har du et fysisk hårdt job, kan det være mere værd. Tænk også på alternativer som seniorpension og tidlig pension.', h: 'Regn på det – og tal med din a-kasse.' }
+  ],
+  quiz: [
+    { q: 'Hvor mange år før folkepensionsalderen kan du højst gå på efterløn?', o: ['1 år', '3 år', '10 år'], a: 1, x: 'Efterløn kan som udgangspunkt fås i op til 3 år (borger.dk).' },
+    { q: 'Hvad er den vejledende folkepensionsalder for personer født 1971 eller senere?', o: ['65 år', '67 år', '70 år'], a: 2, x: 'Vejledende 70 år ifølge borger.dk – og den kan stige.' },
+    { q: 'Hvad kan påvirke størrelsen på din efterløn?', o: ['Din private pension kan blive modregnet', 'Din boligs størrelse', 'Antallet af dine bankkonti'], a: 0, x: 'Pensionsformue og -udbetalinger kan blive modregnet.' },
+    { q: 'Hvor betaler du efterlønsbidrag?', o: ['Via a-kassen', 'Via banken', 'Via kommunen'], a: 0, x: 'Efterlønsbidraget betales gennem din a-kasse.' }
+  ] },
+{ id: 'virksomhed', track: 'selvst', e: '🚀', t: 'Start en lille virksomhed', desc: 'CVR, moms og enkeltmandsvirksomhed', badge: { e: '🚀', n: 'Iværksætter' },
+  app: ['#/jobs', '💼 Opret jobbet i appen'], src: [['https://virk.dk/', 'virk.dk'], ['https://skat.dk/erhverv/moms/moms-saadan-goer-du/saadan-registrerer-du-din-virksomhed-for-moms', 'skat.dk: Momsregistrering']],
+  steps: [
+    { t: 'Hobby, B-indkomst eller virksomhed?', b: 'Sælger du en gang imellem ydelser som privatperson, kan indtægten være <b>B-indkomst</b>, som du selv skriver på forskudsopgørelsen. Driver du det regelmæssigt med det formål at tjene penge, er det typisk <b>selvstændig virksomhed</b> – så kan du trække udgifter fra, men har også flere pligter.', h: 'Formålet og omfanget afgør, om det er en virksomhed.' },
+    { t: 'CVR og virksomhedsform', b: 'Du opretter en virksomhed og får et CVR-nummer på virk.dk. Den simpleste form er en <b>enkeltmandsvirksomhed</b>: den er nem at starte, men du hæfter personligt for al gæld, og overskuddet beskattes som din personlige indkomst. Et selskab (fx ApS) adskiller din og virksomhedens økonomi, men kræver kapital og mere administration.', h: 'Enkeltmandsvirksomhed = du hæfter personligt.' },
+    { t: 'Moms', b: 'Overstiger dit momspligtige salg 50.000 kr. inden for et kalenderår, skal du momsregistreres (skat.dk, 2026). Så skal du lægge 25 % moms på dine priser og indberette moms til tiden – også "nulindberetninger". Nogle ydelser er momsfritaget, fx visse sundhedsydelser.', h: 'Moms over 50.000 kr. pr. kalenderår.' },
+    { t: 'Bogføring og bilag', b: 'Hold virksomhedens og dit private forbrug adskilt – gerne med en separat konto. Gem alle bilag, og bogfør løbende. Bogføringsloven stiller krav, og der er regler om digital bogføring for mange virksomheder – tjek hvad der gælder for dig hos Erhvervsstyrelsen.', h: 'Separat konto + løbende bogføring = ro i maven.' },
+    { t: 'Skat, forsikring og sikkerhedsnet', b: 'Læg en fast andel af overskuddet til side til skat, og ret forskudsopgørelsen. Overvej en erhvervsansvarsforsikring, og husk at du som selvstændig selv skal sørge for pension og evt. a-kasse. Spørg en revisor ved større beslutninger som virksomhedsordningen.', h: 'Som selvstændig er du også din egen pensionsordning.' }
+  ],
+  quiz: [
+    { q: 'Hvor opretter du et CVR-nummer?', o: ['På virk.dk', 'På borger.dk', 'I banken'], a: 0, x: 'Virksomheder registreres på virk.dk.' },
+    { q: 'Hvad gælder for en enkeltmandsvirksomhed?', o: ['Du hæfter personligt for gælden', 'Ejeren hæfter ikke', 'Den kræver 50.000 kr. i kapital'], a: 0, x: 'I en enkeltmandsvirksomhed er der ingen adskillelse mellem dig og virksomheden.' },
+    { q: 'Hvornår skal du momsregistreres (2026)?', o: ['Ved salg over 50.000 kr. i et kalenderår', 'Ved salg over 300.000 kr.', 'Aldrig som lille virksomhed'], a: 0, x: 'Grænsen er 50.000 kr. momspligtigt salg inden for et kalenderår.' },
+    { q: 'Hvad er en god vane fra dag ét?', o: ['At blande privat og firma på samme konto', 'At have en separat konto og gemme alle bilag', 'At bogføre én gang om året'], a: 1, x: 'Adskillelse og bilag gør regnskab og skat langt nemmere.' }
+  ] },
+{ id: 'bil', track: 'hjem', e: '🚗', t: 'Bil eller ingen bil', desc: 'De samlede ejeromkostninger – og alternativerne', badge: { e: '🚲', n: 'Transportkalkulator' },
+  app: ['#/hvadnu', '🔮 Prøv "Hvad nu hvis" med en ny fast udgift'], src: [['https://fdm.dk/', 'FDM']],
+  steps: [
+    { t: 'Prisen er meget mere end købet', b: 'En bil koster hver måned: <b>værditab</b>, finansiering, forsikring, grøn ejerafgift, brændstof eller strøm, service, dæk, reparationer, vask og parkering. Værditabet er ofte den største post – og den, man glemmer, fordi den ikke står på en regning.', h: 'Værditab er en udgift, selvom den er usynlig.' },
+    { t: 'Regn pris pr. måned og pr. km', b: 'Læg alle årlige udgifter sammen, og del med 12. Del også med de km, du kører om året – så kan du sammenligne med tog, bus, delebil og taxa. FDM og andre har beregnere for samlede bilomkostninger.', h: 'Samlede årlige udgifter ÷ km = din reelle km-pris.' },
+    { t: 'Køb, lån eller leasing?', b: '<b>Kontant køb</b> er billigst, hvis du har pengene. <b>Billån</b> koster renter og gebyrer – sammenlign ÅOP. <b>Privatleasing</b> giver en fast månedlig pris, men tjek km-grænse, udbetaling og regler for skader ved aflevering. Du ejer ikke bilen bagefter.', h: 'Sammenlign den samlede pris – ikke kun månedsydelsen.' },
+    { t: 'Alternativerne', b: 'Cykel/elcykel, kollektiv trafik, delebil og lejlighedsvis billeje kan samlet være meget billigere, hvis du ikke kører dagligt. Mange kombinerer: cykel i hverdagen og lejebil til ferien.', h: 'Hvad koster det at lade være med at eje en bil?' },
+    { t: 'Hvis du vælger bil', b: 'Vælg en bil, der passer til dit faktiske behov, ikke dit drømmescenarie. Indhent forsikringstilbud, før du køber, tjek afgift og forbrug, og læg penge til side hver måned til service og reparationer.', h: 'Budget til bil = alle posterne + en reparationsbuffer.' }
+  ],
+  quiz: [
+    { q: 'Hvilken udgift glemmes ofte, fordi den ikke kommer som en regning?', o: ['Forsikring', 'Værditab', 'Brændstof'], a: 1, x: 'Værditabet er ofte den største post.' },
+    { q: 'Hvordan sammenligner du bil med andre transportformer?', o: ['Ved at se på købsprisen', 'Ved at beregne samlede omkostninger pr. km', 'Ved at se på farven'], a: 1, x: 'Samlede årlige omkostninger ÷ antal km giver en reel sammenligning.' },
+    { q: 'Hvad skal du især tjekke ved privatleasing?', o: ['Km-grænse og regler for skader ved aflevering', 'Bilens farve', 'Om radioen virker'], a: 0, x: 'Overskredne km og skader ved aflevering kan blive dyre.' },
+    { q: 'Hvad er typisk billigst, hvis man har pengene?', o: ['Kontant køb', 'Dyrt billån', 'Kassekredit'], a: 0, x: 'Uden lån slipper du for renter og gebyrer.' }
+  ] },
+{ id: 'groen', track: 'hjem', e: '🌱', t: 'Grøn økonomi i hjemmet', desc: 'Spar energi, forstå elprisen og find tilskud', badge: { e: '🌍', n: 'Energisparer' },
+  src: [['https://elpris.dk/', 'elpris.dk (Forsyningstilsynet)'], ['https://sparenergi.dk/', 'SparEnergi.dk (Energistyrelsen)']],
+  steps: [
+    { t: 'Hvad består elprisen af?', b: 'Din elpris består af selve strømmen (som ofte skifter time for time), nettarif til netselskabet, afgifter og moms. Elafgiften er midlertidigt nedsat til næsten ingenting i 2026 og 2027 (skat.dk). Resten af prisen kan stadig variere meget over døgnet.', h: 'Elpris = strøm + nettarif + afgifter + moms.' },
+    { t: 'Flyt forbruget', b: 'Har du en aftale med timepris, kan det betale sig at køre opvask, vaskemaskine og opladning af elbil, når strømmen er billig – typisk om natten og midt på dagen. Nettariffen er ofte højest i spidstimerne om eftermiddagen og aftenen.', h: 'Undgå de dyre spidstimer, når du kan.' },
+    { t: 'Sammenlign elaftaler', b: 'På elpris.dk, som drives af Forsyningstilsynet, kan du sammenligne elaftaler. Kig efter faste månedsgebyrer og tillæg pr. kWh – de betyder ofte mere end reklamens "billigste strøm".', h: 'Tjek abonnement og tillæg – ikke kun spotprisen.' },
+    { t: 'Små vaner, der virker', b: 'Skru en grad ned for varmen, luk for standby, brug lågen på gryden, vask ved lavere temperatur og tjek tætningslister ved vinduer og døre. Energistyrelsens SparEnergi.dk har gode råd og beregnere for både bolig og apparater.', h: 'Én grad lavere giver typisk en mærkbar besparelse på varmen.' },
+    { t: 'Større investeringer og tilskud', b: 'Efterisolering, varmepumpe og nye vinduer koster, men kan tjene sig hjem. Energistyrelsen administrerer tilskudspuljer, som åbner og lukker – tjek de aktuelle på deres hjemmeside. Håndværkerfradraget dækker visse grønne ydelser (op til 9.000 kr. i 2026, skat.dk).', h: 'Regn tilbagebetalingstid, og tjek tilskud før du bestiller.' }
+  ],
+  quiz: [
+    { q: 'Hvornår er strømmen ofte dyrest for husholdninger?', o: ['Om natten', 'I spidstimerne om eftermiddagen/aftenen', 'Kl. 12 om middagen'], a: 1, x: 'Spotpris og nettarif er typisk højest i spidstimerne.' },
+    { q: 'Hvem driver elpris.dk?', o: ['Forsyningstilsynet', 'Et elselskab', 'Banken'], a: 0, x: 'elpris.dk drives af Forsyningstilsynet.' },
+    { q: 'Hvad er vigtigt at sammenligne på en elaftale?', o: ['Kun reklamen', 'Abonnement og tillæg pr. kWh', 'Logoet'], a: 1, x: 'Faste gebyrer og tillæg afgør ofte, hvad du betaler i alt.' },
+    { q: 'Hvor finder du aktuelle tilskudspuljer til energiforbedringer?', o: ['Hos Energistyrelsen', 'På sociale medier', 'Hos naboen'], a: 0, x: 'Energistyrelsen administrerer puljerne. De åbner og lukker.' }
+  ] },
+{ id: 'boernpenge', track: 'hjem', e: '🧒', t: 'Snak med børn om penge', desc: 'Lommepenge, vaner og digitale fælder', badge: { e: '🐷', n: 'Pengeforælder' },
+  steps: [
+    { t: 'Start tidligt – og konkret', b: 'Børn lærer mest af det, de ser. Tag dem med på indkøb, sammenlign priser højt, og forklar, at penge på kortet også er rigtige penge. Små børn forstår mønter og sparegrise bedre end tal på en skærm.', h: 'Gør penge synlige – især når de er digitale.' },
+    { t: 'Lommepenge som træning', b: 'Faste lommepenge giver børn noget at øve sig på. Aftal, hvad de selv skal betale for. Lad dem lave fejl med små beløb – at have brugt alle pengene på slik i går er en billig og effektiv lektion.', h: 'Små fejl nu sparer store fejl senere.' },
+    { t: 'Brug – gem – giv', b: 'En enkel model: Del lommepengene i tre bunker eller konti – én til at bruge, én til at spare op til noget større, og evt. én til at give. Det lærer, at penge kan have forskellige formål, og at det kræver tålmodighed at nå et mål.', h: 'Et sparemål med billede motiverer.' },
+    { t: 'Digitale fælder', b: 'Spil med køb i appen, loot boxes og abonnementer er designet til at få børn til at bruge penge. Slå køb fra eller kræv godkendelse, og tal om, hvordan spillene tjener penge. Lær dem også aldrig at dele koder eller billeder af kort.', h: 'Slå køb i apps fra – og forklar hvorfor.' },
+    { t: 'Teenagere og første job', b: 'Hjælp med første lønseddel, skattekort og frikort, og tal om opsparing og forbrugslån. Lad dem have egen konto og kort med grænser. Fortæl også ærligt om jeres egne fejl – det gør penge til noget, man kan tale om.', h: 'Gør penge til et normalt samtaleemne derhjemme.' }
+  ],
+  quiz: [
+    { q: 'Hvorfor er det godt at lade børn lave små pengefejl?', o: ['Det er det ikke', 'Det er billig og effektiv læring', 'Så de mister lysten til at spare'], a: 1, x: 'Små fejl med små beløb lærer mere end mange formaninger.' },
+    { q: 'Hvad står "brug – gem – giv" for?', o: ['Tre formål med pengene', 'Tre banker', 'Tre typer lån'], a: 0, x: 'Pengene deles efter formål: forbrug, opsparing og at give.' },
+    { q: 'Hvad er en god idé med børns spil på mobilen?', o: ['At gemme dit kort i spillet', 'At slå køb fra eller kræve godkendelse', 'At give dem din kode'], a: 1, x: 'Køb i spil er designet til at være lette. Slå dem fra.' },
+    { q: 'Hvad bør du hjælpe med ved første job?', o: ['Skattekort/frikort og lønseddel', 'Et forbrugslån', 'Ingenting'], a: 0, x: 'Første lønseddel og skattekort er en god anledning til at lære om skat.' }
+  ] }
+);
