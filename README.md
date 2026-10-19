@@ -29,3 +29,9 @@ Hosting: upload mappen som den er til en statisk host (GitHub Pages, Netlify, Ve
 ### v5 – Økonomiskolen og Renters rente
 - “Økonomiskolen”: 50 lektioner i 10 moduler (Grundlæggende, Skat, Renters rente & investering, Pension, Gæld & lån, Bolig, Forsikring, Forbrugerret, Pengepsykologi, Sikkerhed & svindel). Indholdet ligger i `skole.js`. “Marker som læst” gemmes i `settings.lessonsRead` (med i backup), med fremskridt pr. modul. “Dagens råd” på Overblik skifter lektion hver dag.
 - “Renters rente”: beregner med startbeløb, månedlig opsparing, afkast, antal år, valgfri årlige omkostninger og årlig stigning i opsparingen, købekraft (inflation), stablet graf (indskud/afkast), nøgletal og tabel år for år. Indstillingerne gemmes i `settings.calc`. Kun en illustration – ikke et løfte om afkast. Cache `okonomi-v5`.
+
+## v6
+- **Import-påmindelse**: banner på Overblik når der er gået længere end valgt interval (Indstillinger → Import: uge/14 dage/måned/fra) siden sidste import. "Udsæt 7 dage". Vises kun når appen åbnes (ingen push-notifikationer).
+- **Årsoversigt til skat** (`#/aarsoversigt`): indtægter pr. job/type, fradragsrelevante poster og tjekliste pr. år, CSV-eksport og printvenlig udgave. Vejledende – tjek altid på skat.dk.
+- **Hvad nu hvis** (`#/hvadnu`): ændr indkomst, ny fast udgift, engangsudgift, opsig abonnementer og skær i kategorier – se effekt på månedligt overskud og mål.
+- **Nettoformue** (`#/formue`): aktiver og gæld med historik, graf og "Opdatér alle".

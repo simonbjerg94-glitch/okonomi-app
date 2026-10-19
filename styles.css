@@ -505,3 +505,29 @@ select.mini { background: var(--input); border: 1px solid var(--border); border-
 @media (max-width: 520px) { .daily .main-col { flex: 1 1 calc(100% - 66px); } .daily-ico { width: 44px; height: 44px; font-size: 22px; align-self: flex-start; } }
 @media (max-width: 899px) { .calc-kpis .kpi:last-child { grid-column: span 2; } }
 .daily .main-col { flex: 1; min-width: 0; }
+
+/* v6: påmindelse, årsoversigt, hvad nu hvis */
+.remind { display: flex; align-items: center; gap: 14px; margin-top: 0; margin-bottom: 14px; border-color: rgba(0,194,255,.35); background: linear-gradient(135deg, rgba(0,194,255,.10), rgba(124,92,255,.08)); }
+.remind .main-col { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.remind-ico { font-size: 26px; width: 48px; height: 48px; display: grid; place-items: center; border-radius: 14px; background: rgba(0,194,255,.14); flex-shrink: 0; }
+.remind-btns { display: flex; gap: 8px; flex-shrink: 0; }
+@media (max-width: 640px) { .remind { flex-wrap: wrap; } .remind .main-col { flex: 1 1 calc(100% - 64px); } .remind-btns { width: 100%; } .remind-btns .btn { flex: 1; } }
+table.tbl tr.tot td { border-top: 2px solid var(--border); }
+.check-list .row > span:first-child { font-size: 20px; width: 32px; text-align: center; }
+.wi-h { font-size: 14px; margin: 18px 0 10px; }
+.wi-subs { display: flex; flex-direction: column; gap: 6px; }
+.wi-sub { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px; background: var(--input); cursor: pointer; font-size: 13.5px; }
+.wi-sub span { flex: 1; }
+.wi-sub input { width: 18px; height: 18px; accent-color: var(--accent-1); margin: 0; }
+.wi-sub:has(input:checked) { outline: 1px solid rgba(34,211,154,.5); }
+.wi-sub:has(input:checked) b { text-decoration: line-through; color: var(--pos); }
+@media print {
+  .sidebar, .bottom-nav, .fab, .topbar .icon-btn, #monthPicker, .bg-glow, .tabs, .btn, .banner, #toast { display: none !important; }
+  html, body { background: #fff !important; color: #000 !important; }
+  .main { padding: 0 !important; }
+  .card { box-shadow: none !important; border: 1px solid #ccc !important; background: #fff !important; color: #000 !important; break-inside: avoid; }
+  .kpi.hero { background: #eef !important; color: #000 !important; }
+  .muted, .kpi .label, .kpi .sub { color: #444 !important; }
+  .scroll-x { overflow: visible !important; }
+  table.tbl { font-size: 10px; }
+}

@@ -69,8 +69,8 @@ const DEFAULT_JOBS = [
 ];
 const clone = o => JSON.parse(JSON.stringify(o));
 const freshState = () => ({
-  version: 3,
-  rules: [],
+  version: 4,
+  rules: [], networth: { items: [] },
   jobs: clone(DEFAULT_JOBS),
   settings: { theme: document.documentElement.dataset.theme || 'dark', ptTaxRate: 40, name: 'Simon', subSort: 'amount-desc' },
   categories: JSON.parse(JSON.stringify(DEFAULT_CATEGORIES)),
@@ -105,7 +105,8 @@ function migrate() {
     changed = true;
   }
   if (!Array.isArray(S.rules)) { S.rules = []; changed = true; }
-  if (S.version !== 3) { S.version = 3; changed = true; }
+  if (!S.networth || !Array.isArray(S.networth.items)) { S.networth = { items: [] }; changed = true; }
+  if (S.version !== 4) { S.version = 4; changed = true; }
   return changed;
 }
 function save() {
@@ -174,11 +175,14 @@ const ROUTES = {
   posteringer: { title: 'Posteringer', ico: '🧾', render: renderPosteringer, month: true },
   budget: { title: 'Budget', ico: '🎯', render: renderBudget, month: true },
   maal: { title: 'Opsparingsmål', short: 'Mål', ico: '🏆', render: renderMaal },
+  formue: { title: 'Nettoformue', ico: '💎', render: renderFormue },
   jobs: { title: 'Mine jobs', ico: '💼', render: renderJobs, month: true },
+  aarsoversigt: { title: 'Årsoversigt til skat', ico: '📑', render: renderAarsoversigt },
   abonnementer: { title: 'Abonnementsjæger', ico: '✂️', render: renderAbonnementer },
   sparetips: { title: 'Sparetips', ico: '💡', render: renderSparetips },
   skole: { title: 'Økonomiskolen', ico: '🎓', render: renderSkole },
   renter: { title: 'Renters rente', ico: '🧮', render: renderRenter },
+  hvadnu: { title: 'Hvad nu hvis', ico: '🔮', render: renderHvadnu },
   indstillinger: { title: 'Indstillinger', ico: '⚙️', render: renderIndstillinger },
   mere: { title: 'Mere', ico: '☰', render: renderMere, hidden: true }
 };
@@ -190,7 +194,7 @@ function renderNav() {
   const r = route();
   $('#sideNav').innerHTML = Object.entries(ROUTES).filter(([, v]) => !v.hidden).map(([k, v]) =>
     `<a class="nav-link ${k === r ? 'active' : ''}" href="#/${k}"><span class="ico">${v.ico}</span>${v.title}</a>`).join('');
-  const moreActive = ['budget', 'jobs', 'abonnementer', 'sparetips', 'skole', 'renter', 'indstillinger', 'mere'].includes(r);
+  const moreActive = ['budget', 'jobs', 'aarsoversigt', 'formue', 'abonnementer', 'sparetips', 'skole', 'renter', 'hvadnu', 'indstillinger', 'mere'].includes(r);
   $('#bottomNav').innerHTML = `
     <a href="#/overblik" class="${r === 'overblik' ? 'active' : ''}"><span class="ico">📊</span>Overblik</a>
     <a href="#/posteringer" class="${r === 'posteringer' ? 'active' : ''}"><span class="ico">🧾</span>Poster</a>
@@ -329,7 +333,7 @@ function renderOverblik() {
     .map(c => ({ c, spent: s.byCat[c.id] || 0 })).sort((a, b) => b.spent / b.c.budget - a.spent / a.c.budget).slice(0, 4);
   const recent = [...s.tx].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6);
   afterRender.overblik = () => drawOverblikCharts(s, top);
-  return `
+  return `${importReminderHTML()}
   <div class="grid kpis">
     <div class="card kpi hero">
       <div class="label">Rådighedsbeløb · ${monthLabel(selMonth)}</div>
@@ -978,9 +982,280 @@ function setCalc(k, raw, from) {
   updateCalc(false);
 }
 
+/* ---------- Import-påmindelse ---------- */
+const daysBetween = (a, b) => Math.round((new Date(b + 'T12:00') - new Date(a + 'T12:00')) / 864e5);
+function lastImportDate() {
+  if (S.settings.lastImport) return S.settings.lastImport;
+  const imp = S.transactions.filter(t => t.imported).map(t => t.importedAt || t.date).sort();
+  return imp.length ? imp[imp.length - 1] : null;
+}
+function importReminder() {
+  const every = S.settings.importReminder ?? 14;
+  if (!every || S.isExample) return null;
+  const today = todayISO();
+  if (S.settings.importSnooze && S.settings.importSnooze > today) return null;
+  const last = lastImportDate();
+  if (!last) return S.transactions.length ? { first: true } : null;
+  const days = daysBetween(last, today);
+  return days >= every ? { days, last } : null;
+}
+function importReminderHTML() {
+  const r = importReminder(); if (!r) return '';
+  return `<div class="card section remind">
+    <div class="remind-ico">🏦</div>
+    <div class="main-col"><strong>${r.first ? 'Hent dine posteringer fra banken' : `Det er ${r.days} dage siden, du sidst importerede`}</strong>
+      <span class="muted small">${r.first ? 'Importér et kontoudtog (CSV/Excel) – Lån & Spar genkendes automatisk, og du gennemser alt, før det gemmes.' : `Seneste import: ${fmtDate(r.last)}. Hent de nyeste posteringer, så dit overblik passer.`}</span></div>
+    <div class="remind-btns"><button class="btn btn-sm btn-primary" data-action="import-csv">Importér nu</button><button class="btn btn-sm btn-ghost" data-action="snooze-import">Udsæt 7 dage</button></div>
+  </div>`;
+}
+
+/* ---------- Årsoversigt til skat ---------- */
+let taxYear = null;
+function renderAarsoversigt() {
+  const years = [...new Set(S.transactions.map(t => t.date.slice(0, 4)))].sort().reverse();
+  const cy = String(new Date().getFullYear());
+  if (!years.includes(cy)) years.unshift(cy);
+  const Y = taxYear && years.includes(taxYear) ? taxYear : (years.includes(String(+cy - 1)) && new Date().getMonth() < 3 ? String(+cy - 1) : cy);
+  const tx = S.transactions.filter(t => t.date.startsWith(Y));
+  const inc = tx.filter(t => t.type === 'income'), exp = tx.filter(t => t.type === 'expense');
+  const months = Array.from({ length: 12 }, (_, i) => `${Y}-${pad(i + 1)}`);
+  const rows = [...S.jobs.map(j => ({ j, list: inc.filter(t => t.jobId === j.id) })), { j: null, list: inc.filter(t => !job(t.jobId)) }].filter(r => r.list.length || r.j);
+  const tot = list => sum(list.map(t => t.amount));
+  const totalInc = tot(inc), noTax = sum(rows.filter(r => hasReserve(r.j)).map(r => tot(r.list)));
+  const reserve = sum(rows.filter(r => hasReserve(r.j)).map(r => tot(r.list) * jobRate(r.j) / 100));
+  const fag = tot(exp.filter(t => t.categoryId === 'c-fag'));
+  const isPartial = Y === cy;
+  const monthCell = (list, m) => { const v = tot(list.filter(t => t.date.startsWith(m))); return v ? nf0.format(v) : '<span class="muted">–</span>'; };
+  return `
+  <div class="tabs">${years.map(y => `<button class="chip ${y === Y ? 'on' : ''}" data-action="tax-year" data-y="${y}">${y}</button>`).join('')}</div>
+  <div class="card summary section" style="margin-top:0"><span class="tag">📑 Til forskuds- og årsopgørelsen</span>
+    <p>Her er dine indtægter i <strong>${Y}</strong>${isPartial ? ' indtil nu' : ''} samlet pr. job – som hjælp, når du skal tjekke ${isPartial ? 'forskudsopgørelsen' : 'årsopgørelsen'} i TastSelv. Tallene kommer fra dine egne posteringer i appen.</p></div>
+  <div class="grid kpis section">
+    <div class="card kpi hero"><div class="label">Indtægter i ${Y}${isPartial ? ' (til dato)' : ''}</div><div class="value">${kr(totalInc, false)}</div><div class="sub">${inc.length} indbetalinger</div></div>
+    <div class="card kpi"><div class="label">🧾 Uden trukket skat</div><div class="value">${kr(noTax, false)}</div><div class="sub">selvstændig & udlejning</div></div>
+    <div class="card kpi"><div class="label">🛟 Din skattereserve</div><div class="value warn">${kr(reserve, false)}</div><div class="sub">dit eget skøn pr. job</div></div>
+    <div class="card kpi"><div class="label">🤝 A-kasse & fagforening</div><div class="value">${kr(fag, false)}</div><div class="sub">betalt i ${Y}</div></div>
+  </div>
+  <div class="card section"><h2>Indtægter pr. job <small>${Y}</small></h2><div class="scroll-x"><table class="tbl">
+    <thead><tr><th>Job</th><th>Type</th><th class="r">Indbetalinger</th><th class="r">I alt</th><th class="r">Reserve-sats</th><th class="r">Reserve (skøn)</th></tr></thead><tbody>
+    ${rows.map(r => `<tr><td>${r.j ? `${r.j.emoji} ${esc(r.j.name)}` : '❔ Uden job'}</td><td>${r.j ? JOB_KINDS[r.j.kind] : '–'}</td><td class="r">${r.list.length}</td><td class="r"><b>${kr(tot(r.list), false)}</b></td><td class="r">${hasReserve(r.j) ? jobRate(r.j) + ' %' : '–'}</td><td class="r">${hasReserve(r.j) ? kr(tot(r.list) * jobRate(r.j) / 100, false) : '–'}</td></tr>`).join('')}
+    <tr class="tot"><td><b>I alt</b></td><td></td><td class="r">${inc.length}</td><td class="r"><b>${kr(totalInc, false)}</b></td><td></td><td class="r"><b>${kr(reserve, false)}</b></td></tr>
+    </tbody></table></div>
+    <p class="muted small" style="margin-top:10px">Lønindkomst (A-indkomst) er allerede indberettet af arbejdsgiveren – sammenlign med årsopgørelsen. Indtægter fra selvstændig virksomhed og udlejning skal du typisk selv oplyse. Reserven er dit eget skøn fra <a href="#/jobs">Mine jobs</a> – ikke en beregnet skat.</p>
+  </div>
+  <div class="card section"><h2>Måned for måned <small>kr.</small></h2><div class="scroll-x"><table class="tbl">
+    <thead><tr><th>Job</th>${months.map(m => `<th class="r">${MONTHS[+m.slice(5) - 1].slice(0, 3)}</th>`).join('')}<th class="r">I alt</th></tr></thead><tbody>
+    ${rows.map(r => `<tr><td>${r.j ? `${r.j.emoji} ${esc(r.j.name)}` : '❔ Uden job'}</td>${months.map(m => `<td class="r">${monthCell(r.list, m)}</td>`).join('')}<td class="r"><b>${nf0.format(tot(r.list))}</b></td></tr>`).join('')}
+    <tr class="tot"><td><b>I alt</b></td>${months.map(m => `<td class="r"><b>${monthCell(inc, m)}</b></td>`).join('')}<td class="r"><b>${nf0.format(totalInc)}</b></td></tr>
+    </tbody></table></div></div>
+  <div class="grid cols-2 section">
+    <div class="card"><h2>✅ Tjekliste</h2><div class="list check-list">
+      <div class="row"><span>🧾</span><div class="main-col"><div class="title">Sammenlign løn med årsopgørelsen</div><div class="meta">Lønnen fra ansættelser bør stemme med det, arbejdsgiverne har indberettet.</div></div></div>
+      <div class="row"><span>🏋️</span><div class="main-col"><div class="title">Oplys indtægt fra selvstændig virksomhed</div><div class="meta">Fx personlig træning – husk også udgifter/bilag til virksomheden, og tjek reglerne på skat.dk.</div></div></div>
+      <div class="row"><span>🏡</span><div class="main-col"><div class="title">Udlejning (fx Airbnb)</div><div class="meta">Der gælder særlige regler og bundfradrag for udlejning – se skat.dk.</div></div></div>
+      <div class="row"><span>🤝</span><div class="main-col"><div class="title">Fagforening og a-kasse</div><div class="meta">Fradraget kommer normalt automatisk – tjek, at beløbet passer med det, du har betalt.</div></div></div>
+      <div class="row"><span>🚲</span><div class="main-col"><div class="title">Kørselsfradrag</div><div class="meta">Beregnes ud fra afstand og arbejdsdage – ikke fra dine posteringer – og skal selv oplyses på årsopgørelsen.</div></div></div>
+    </div></div>
+    <div class="card"><h2>⬇️ Eksport</h2>
+      <p class="muted small">Gem oversigten som regneark eller udskriv/gem som PDF, så du har den ved hånden i TastSelv eller hos en revisor.</p>
+      <div class="btn-row"><button class="btn btn-primary" data-action="tax-csv" data-y="${Y}">📊 Hent som CSV</button><button class="btn" data-action="print">🖨️ Udskriv / PDF</button><a class="btn btn-ghost" href="https://skat.dk/tastselv" target="_blank" rel="noopener">TastSelv ↗</a></div>
+    </div>
+  </div>
+  <p class="muted small tips-note">ℹ️ Årsoversigten er et overblik over dine egne posteringer – ikke en selvangivelse eller en skatteberegning, og den er ikke skatterådgivning. Det er dit eget ansvar, at oplysningerne til Skattestyrelsen er korrekte. Tjek reglerne på skat.dk, og søg rådgivning ved tvivl.</p>`;
+}
+function taxCSV(Y) {
+  const inc = S.transactions.filter(t => t.type === 'income' && t.date.startsWith(Y));
+  const months = Array.from({ length: 12 }, (_, i) => `${Y}-${pad(i + 1)}`);
+  const groups = [...S.jobs.map(j => ({ name: j.name, kind: JOB_KINDS[j.kind], rate: hasReserve(j) ? jobRate(j) : '', list: inc.filter(t => t.jobId === j.id) })), { name: 'Uden job', kind: '', rate: '', list: inc.filter(t => !job(t.jobId)) }];
+  const q = v => /[;"\n]/.test(v) ? `"${String(v).replace(/"/g, '""')}"` : v;
+  const rows = [[`Årsoversigt ${Y} – Min Økonomi (egne posteringer, ikke en skatteberegning)`], [], ['Job', 'Type', ...months.map(m => MONTHS[+m.slice(5) - 1]), 'I alt', 'Reserve-sats %', 'Reserve (skøn)']];
+  groups.forEach(g => { const t = sum(g.list.map(x => x.amount)); rows.push([g.name, g.kind, ...months.map(m => nf2.format(sum(g.list.filter(x => x.date.startsWith(m)).map(x => x.amount)))), nf2.format(t), g.rate, g.rate !== '' ? nf2.format(t * g.rate / 100) : '']); });
+  rows.push([], ['Posteringer'], ['Dato', 'Job', 'Kategori', 'Beløb', 'Note']);
+  [...inc].sort((a, b) => a.date.localeCompare(b.date)).forEach(t => rows.push([fmtDateNum(t.date), job(t.jobId)?.name || '', cat(t.categoryId).name, nf2.format(t.amount), t.note || '']));
+  download(`aarsoversigt-${Y}.csv`, '\ufeff' + rows.map(r => r.map(x => q(String(x))).join(';')).join('\r\n'), 'text/csv;charset=utf-8');
+}
+
+/* ---------- Hvad nu hvis ---------- */
+const WI_DEF = { incDelta: 0, newExpense: 0, oneOff: 0, cancel: [], cuts: {} };
+const wiState = () => ({ ...WI_DEF, ...(S.settings.whatif || {}), cuts: { ...((S.settings.whatif || {}).cuts || {}) }, cancel: [...((S.settings.whatif || {}).cancel || [])] });
+function wiBase() {
+  const keys = []; for (let i = 1; i <= 3; i++) keys.push(addMonths(curMonth(), -i));
+  let used = keys.filter(k => S.transactions.some(t => t.date.startsWith(k)));
+  if (!used.length && S.transactions.some(t => t.date.startsWith(curMonth()))) used = [curMonth()];
+  const n = used.length || 1, st = used.map(stats);
+  const byCat = {}; st.forEach(s => Object.entries(s.byCat).forEach(([c, v]) => byCat[c] = (byCat[c] || 0) + v / n));
+  return { inc: sum(st.map(s => s.inc)) / n, exp: sum(st.map(s => s.exp)) / n, byCat, months: used.length };
+}
+function wiCalc(w, b) {
+  const subs = S.recurring.filter(r => r.type === 'expense' && !r.endMonth && w.cancel.includes(r.id));
+  const subSave = sum(subs.map(r => r.amount));
+  const cutSave = sum(Object.entries(w.cuts).map(([c, p]) => (b.byCat[c] || 0) * p / 100));
+  const inc = b.inc + w.incDelta, exp = Math.max(0, b.exp - subSave - cutSave + w.newExpense);
+  return { inc, exp, net: inc - exp, subSave, cutSave, delta: (inc - exp) - (b.inc - b.exp) };
+}
+function renderHvadnu() {
+  const w = wiState(), b = wiBase();
+  afterRender.hvadnu = () => updateWhatif(true);
+  const subs = S.recurring.filter(r => r.type === 'expense' && !r.endMonth).sort((a, c) => c.amount - a.amount);
+  const cutCats = Object.entries(b.byCat).filter(([c]) => !['c-bolig'].includes(c)).sort((a, c) => c[1] - a[1]).slice(0, 6);
+  const sl = (id, label, min, max, step, val, unit = 'kr/md.') => `<div class="cf"><div class="cf-head"><label for="wn-${id}">${label}</label><span class="cf-num"><input class="input" id="wn-${id}" data-wi="${id}" inputmode="decimal" value="${nf0.format(val)}"><span>${unit}</span></span></div>
+    <input type="range" class="range" id="wr-${id}" data-wi="${id}" min="${min}" max="${max}" step="${step}" value="${val}" style="--p:${(val - min) / (max - min) * 100}%"></div>`;
+  return `
+  <div class="card summary section" style="margin-top:0"><span class="tag">🔮 Hvad nu hvis …</span>
+    <p>Prøv ændringer af på dit gennemsnit for de seneste ${b.months || 0} hele måneder (${kr(b.inc, false)} ind, ${kr(b.exp, false)} ud) og se, hvad det betyder for dit overskud og dine mål. Intet bliver ændret i dine data.</p></div>
+  <div class="grid calc-grid">
+    <div class="card calc-in">
+      <h2>Dine ændringer</h2>
+      ${sl('incDelta', 'Ændring i indtægt', -20000, 20000, 250, w.incDelta)}
+      ${sl('newExpense', 'Ny fast udgift (fx bil, større bolig)', 0, 15000, 100, w.newExpense)}
+      ${sl('oneOff', 'Engangsudgift nu', 0, 100000, 500, w.oneOff, 'kr')}
+      ${cutCats.length ? `<h3 class="wi-h">✂️ Skær ned på forbrug</h3>${cutCats.map(([c, v]) => `<div class="cf"><div class="cf-head"><label>${cat(c).emoji} ${esc(cat(c).name)} <span class="muted small">${kr(v, false)}/md.</span></label><span class="cf-num"><b id="wcv-${c}">${w.cuts[c] || 0}</b> %</span></div>
+        <input type="range" class="range" data-wicut="${c}" min="0" max="75" step="5" value="${w.cuts[c] || 0}" style="--p:${(w.cuts[c] || 0) / 75 * 100}%" aria-label="Skær ned på ${esc(cat(c).name)}"></div>`).join('')}` : ''}
+      ${subs.length ? `<h3 class="wi-h">🔁 Stop faste udgifter</h3><div class="wi-subs">${subs.map(r => `<label class="wi-sub"><input type="checkbox" data-wisub="${r.id}" ${w.cancel.includes(r.id) ? 'checked' : ''}><span>${cat(r.categoryId).emoji} ${esc(r.name)}</span><b>${kr(r.amount, false)}</b></label>`).join('')}</div>` : ''}
+      <button class="btn btn-sm btn-ghost" data-action="wi-reset" style="margin-top:10px">↺ Nulstil scenarie</button>
+    </div>
+    <div class="calc-out">
+      <div class="grid calc-kpis" id="wiKpis"></div>
+      <div class="card"><h2>Opsparing de næste 12 måneder <small>samlet overskud</small></h2><div class="chart-box"><canvas id="chWi"></canvas></div></div>
+      <div class="card" id="wiGoals"></div>
+    </div>
+  </div>
+  <p class="muted small tips-note">ℹ️ Et regneeksempel ud fra dit gennemsnit – virkeligheden svinger fra måned til måned, og skat af ekstra indtægt er ikke medregnet, medmindre du selv trækker den fra. Ikke økonomisk rådgivning.</p>`;
+}
+function updateWhatif(full) {
+  const w = wiState(), b = wiBase(), r = wiCalc(w, b);
+  const baseNet = b.inc - b.exp;
+  const sgn = v => (v >= 0 ? '+' : '−') + kr(Math.abs(v), false);
+  $('#wiKpis').innerHTML = `
+    <div class="card kpi hero"><div class="label">Overskud pr. måned med ændringer</div><div class="value">${r.net < 0 ? '−' : ''}${kr(Math.abs(r.net), false)}</div><div class="sub">nu: ${baseNet < 0 ? '−' : ''}${kr(Math.abs(baseNet), false)} · ${sgn(r.delta)}/md.</div></div>
+    <div class="card kpi"><div class="label">📅 Forskel på et år</div><div class="value ${r.delta >= 0 ? 'pos' : 'neg'}">${sgn(r.delta * 12 - w.oneOff)}</div><div class="sub">inkl. engangsudgift</div></div>
+    <div class="card kpi"><div class="label">🐷 Opsparingsrate</div><div class="value">${r.inc > 0 ? pct(r.net / r.inc * 100) : '–'}</div><div class="sub">nu ${b.inc > 0 ? pct(baseNet / b.inc * 100) : '–'}</div></div>
+    <div class="card kpi"><div class="label">✂️ Sparet på forbrug</div><div class="value pos">${kr(r.subSave + r.cutSave, false)}</div><div class="sub">pr. måned</div></div>`;
+  const labels = [], now = [], sc = []; let a = 0, s = -w.oneOff;
+  for (let i = 1; i <= 12; i++) { const m = addMonths(curMonth(), i); labels.push(MONTHS[+m.slice(5) - 1].slice(0, 3)); a += baseNet; s += r.net; now.push(Math.round(a)); sc.push(Math.round(s)); }
+  const ch = charts.find(x => x.canvas && x.canvas.id === 'chWi');
+  if (ch && !full) { ch.data.datasets[0].data = now; ch.data.datasets[1].data = sc; ch.update('none'); }
+  else {
+    if (ch) { ch.destroy(); charts.splice(charts.indexOf(ch), 1); }
+    mkChart('chWi', { type: 'line', data: { labels, datasets: [
+      { label: 'Som nu', data: now, borderColor: 'rgba(148,163,184,.9)', borderDash: [5, 4], borderWidth: 2, pointRadius: 0, tension: .3 },
+      { label: 'Med ændringer', data: sc, borderColor: '#7c5cff', backgroundColor: 'rgba(124,92,255,.15)', fill: true, borderWidth: 3, pointRadius: 0, tension: .3 }
+    ] }, options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 12, usePointStyle: true } } }, scales: { x: { grid: { display: false } }, y: { ticks: { callback: tickKr } } } } });
+  }
+  const goals = S.goals.filter(g => goalSaved(g) < g.target);
+  const per = net => goals.length ? Math.max(0, net) / goals.length : 0;
+  const eta = (g, pace) => { const rem = g.target - goalSaved(g); return pace > 0 ? Math.ceil(rem / pace) : null; };
+  const lbl = n => n == null ? '—' : n <= 0 ? 'nu' : `${monthLabel(addMonths(curMonth(), n))}`;
+  $('#wiGoals').innerHTML = `<h2>🏆 Dine mål <small>hvis overskuddet fordeles ligeligt</small></h2>${goals.length ? `<div class="list">${goals.map(g => { const n0 = eta(g, per(baseNet)), n1 = eta(g, per(r.net)); const diff = n0 != null && n1 != null ? n0 - n1 : null; return `<div class="row"><div class="avatar" style="background:${g.color}22">${g.emoji}</div><div class="main-col"><div class="title">${esc(g.name)}</div><div class="meta">nu: ${lbl(n0)} → med ændringer: <b>${lbl(n1)}</b></div></div>${diff ? `<span class="pill ${diff > 0 ? 'ok' : 'bad'}">${diff > 0 ? `${diff} md. før` : `${-diff} md. senere`}</span>` : ''}</div>`; }).join('')}</div>` : `<p class="muted small">Du har ingen aktive opsparingsmål. <a href="#/maal">Opret et mål</a> for at se, hvornår du når det.</p>`}`;
+}
+function setWhatif(k, raw, from) {
+  const w = wiState(); let v = typeof raw === 'number' ? raw : parseFloat(String(raw).replace(/\./g, '').replace(',', '.').replace(/[^\d.\-]/g, ''));
+  if (!isFinite(v)) return;
+  w[k] = v; S.settings.whatif = w; save();
+  const rng = $('#wr-' + k); if (rng) { if (from !== 'range') rng.value = v; rng.style.setProperty('--p', (v - rng.min) / (rng.max - rng.min) * 100 + '%'); }
+  const num = $('#wn-' + k); if (num && from !== 'num') num.value = nf0.format(v);
+  updateWhatif(false);
+}
+
+/* ---------- Nettoformue ---------- */
+const NW_KINDS = {
+  asset: { konto: ['💳', 'Bankkonto'], opsparing: ['🐷', 'Opsparing'], investering: ['📈', 'Investeringer'], pension: ['👵', 'Pension'], bolig: ['🏠', 'Bolig'], bil: ['🚗', 'Bil / køretøj'], andet: ['📦', 'Andet'] },
+  debt: { realkredit: ['🏦', 'Realkredit'], banklaan: ['🏛️', 'Banklån'], su: ['🎓', 'SU-lån'], billaan: ['🚗', 'Billån'], kredit: ['💳', 'Kreditkort / kassekredit'], andet: ['📦', 'Anden gæld'] }
+};
+const nwItems = () => (S.networth && S.networth.items) || [];
+const nwCur = it => { const h = [...(it.history || [])].sort((a, b) => a.date.localeCompare(b.date)); return h.length ? h[h.length - 1] : null; };
+const nwAt = (it, date) => { const h = (it.history || []).filter(x => x.date <= date).sort((a, b) => a.date.localeCompare(b.date)); return h.length ? h[h.length - 1].value : null; };
+function nwTotals(date) {
+  let a = 0, d = 0, any = false;
+  nwItems().forEach(it => { const v = date ? nwAt(it, date) : nwCur(it)?.value; if (v == null) return; any = true; it.side === 'debt' ? d += v : a += v; });
+  if (S.settings.nwGoals) a += sum(S.goals.map(goalSaved));
+  return { a, d, net: a - d, any };
+}
+function renderFormue() {
+  const items = nwItems(), t = nwTotals();
+  const today = todayISO(), prevDate = `${addMonths(curMonth(), -1)}-${pad(dim(addMonths(curMonth(), -1)))}`;
+  const prev = nwTotals(prevDate);
+  const lastUpd = items.map(it => nwCur(it)?.date).filter(Boolean).sort().pop();
+  const stale = lastUpd && daysBetween(lastUpd, today) > 35;
+  const row = it => { const c = nwCur(it), k = NW_KINDS[it.side][it.kind] || ['📦', 'Andet']; const h = (it.history || []).length; return `<div class="row click" data-action="nw-edit" data-id="${it.id}">
+    <div class="avatar" style="background:${it.side === 'debt' ? 'rgba(255,107,139,.14)' : 'rgba(34,211,154,.14)'}">${k[0]}</div>
+    <div class="main-col"><div class="title">${esc(it.name)}</div><div class="meta">${k[1]}${c ? ` · opdateret ${fmtDate(c.date)}` : ''}${h > 1 ? ` · ${h} målinger` : ''}</div></div>
+    <div class="amt ${it.side === 'debt' ? 'neg' : ''}">${it.side === 'debt' ? '−' : ''}${kr(c ? c.value : 0, false)}</div></div>`; };
+  afterRender.formue = () => drawNetworth();
+  const assets = items.filter(i => i.side === 'asset'), debts = items.filter(i => i.side === 'debt');
+  return `
+  ${!items.length ? `<div class="card summary section" style="margin-top:0"><span class="tag">💎 Nettoformue</span><p>Nettoformue er alt, du ejer, minus alt, du skylder. Tilføj dine konti, opsparing, pension, bolig og gæld – og opdatér værdierne fx en gang om måneden. Så kan du følge udviklingen over tid.</p></div>` : ''}
+  ${stale ? `<div class="banner"><span>⏰</span><div class="grow"><strong>Sidst opdateret ${fmtDate(lastUpd)}.</strong> Opdatér værdierne, så grafen viser din aktuelle formue.</div><button class="btn btn-sm" data-action="nw-update-all">Opdatér nu</button></div>` : ''}
+  <div class="grid kpis">
+    <div class="card kpi hero"><div class="label">Nettoformue</div><div class="value">${t.net < 0 ? '−' : ''}${kr(Math.abs(t.net), false)}</div><div class="sub">${prev.any ? `${t.net - prev.net >= 0 ? '+' : '−'}${kr(Math.abs(t.net - prev.net), false)} siden ${monthLabel(addMonths(curMonth(), -1))}` : 'aktiver minus gæld'}</div></div>
+    <div class="card kpi"><div class="label">💚 Aktiver</div><div class="value">${kr(t.a, false)}</div><div class="sub">${assets.length} poster${S.settings.nwGoals ? ' + mål' : ''}</div></div>
+    <div class="card kpi"><div class="label">💳 Gæld</div><div class="value neg">${t.d ? '−' : ''}${kr(t.d, false)}</div><div class="sub">${debts.length} poster</div></div>
+    <div class="card kpi"><div class="label">⚖️ Gældsgrad</div><div class="value">${t.a > 0 ? pct(t.d / t.a * 100) : '–'}</div><div class="sub">gæld i forhold til aktiver</div></div>
+  </div>
+  <div class="card section"><h2>Udvikling <small>seneste 24 måneder</small></h2>${items.length ? '<div class="chart-box tall"><canvas id="chNw"></canvas></div>' : '<p class="muted">Tilføj dine første poster for at se grafen.</p>'}</div>
+  <div class="grid cols-2 section">
+    <div class="card"><h2>💚 Aktiver <button class="btn btn-sm" data-action="nw-add" data-side="asset">＋ Tilføj</button></h2><div class="list">${assets.map(row).join('') || '<p class="muted small">Fx lønkonto, opsparing, aktiedepot, pension, bolig.</p>'}
+      ${S.goals.length ? `<label class="switch" style="margin:10px 0 0"><span>🏆 Medregn opsparingsmål <span class="muted small">(${kr(sum(S.goals.map(goalSaved)), false)})</span></span><input type="checkbox" id="nwGoals" ${S.settings.nwGoals ? 'checked' : ''}></label>` : ''}</div></div>
+    <div class="card"><h2>💳 Gæld <button class="btn btn-sm" data-action="nw-add" data-side="debt">＋ Tilføj</button></h2><div class="list">${debts.map(row).join('') || '<p class="muted small">Fx realkredit, SU-lån, billån, kreditkort.</p>'}</div></div>
+  </div>
+  ${items.length ? '<button class="btn btn-primary btn-block section" data-action="nw-update-all">🔄 Opdatér alle værdier i dag</button>' : ''}
+  <p class="muted small tips-note">ℹ️ Værdierne er dine egne skøn (fx boligens handelsværdi eller pensionens depotværdi fra PensionsInfo). Pension og bolig kan ikke altid bruges med det samme, og skat ved udbetaling eller salg er ikke fratrukket.</p>`;
+}
+function drawNetworth() {
+  const items = nwItems(); if (!items.length) return;
+  const first = items.flatMap(i => (i.history || []).map(h => h.date)).sort()[0]; if (!first) return;
+  const months = []; for (let m = addMonths(curMonth(), -23); m <= curMonth(); m = addMonths(m, 1)) if (m >= first.slice(0, 7)) months.push(m);
+  const pts = months.map(m => nwTotals(m === curMonth() ? todayISO() : `${m}-${pad(dim(m))}`));
+  mkChart('chNw', { type: 'bar', data: { labels: months.map(m => MONTHS[+m.slice(5) - 1].slice(0, 3) + ' ' + m.slice(2, 4)), datasets: [
+    { type: 'line', label: 'Nettoformue', data: pts.map(p => Math.round(p.net)), borderColor: '#7c5cff', backgroundColor: '#7c5cff', borderWidth: 3, pointRadius: months.length > 12 ? 0 : 3, tension: .3, order: 0 },
+    { label: 'Aktiver', data: pts.map(p => Math.round(p.a)), backgroundColor: 'rgba(34,211,154,.55)', borderRadius: 4, order: 1 },
+    { label: 'Gæld', data: pts.map(p => -Math.round(p.d)), backgroundColor: 'rgba(255,107,139,.55)', borderRadius: 4, order: 1 }
+  ] }, options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 12, usePointStyle: true } } }, scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: false, ticks: { callback: tickKr } } } } });
+}
+function openNwModal(it, side) {
+  const isNew = !it; const x = it ? clone(it) : { name: '', side, kind: Object.keys(NW_KINDS[side])[0], history: [] };
+  const c = nwCur(x);
+  openSheet(`${sheetHead(isNew ? (side === 'debt' ? 'Ny gæld' : 'Nyt aktiv') : esc(x.name))}
+    <div class="field"><span class="lbl">Type</span><div class="chips" data-chips="nwkind">${Object.entries(NW_KINDS[x.side]).map(([k, v]) => `<button type="button" class="chip ${k === x.kind ? 'on' : ''}" data-val="${k}">${v[0]} ${v[1]}</button>`).join('')}</div></div>
+    <div class="field"><label for="nwName">Navn</label><input class="input" id="nwName" placeholder="${x.side === 'debt' ? 'Fx Realkredit – Totalkredit' : 'Fx Lønkonto – Lån & Spar'}" value="${esc(x.name)}" ${isNew ? 'autofocus' : ''}></div>
+    <div class="field-row"><div class="field"><label for="nwVal">${x.side === 'debt' ? 'Restgæld' : 'Værdi'} i dag</label><input class="input" id="nwVal" inputmode="decimal" placeholder="0" value="${c ? nf2.format(c.value) : ''}" ${isNew ? '' : 'autofocus'}></div>
+      <div class="field"><label for="nwDate">Dato</label><input class="input" type="date" id="nwDate" value="${todayISO()}"></div></div>
+    ${!isNew && x.history.length ? `<details class="map"><summary>Historik (${x.history.length})</summary><div class="list">${[...x.history].sort((a, b) => b.date.localeCompare(a.date)).map(h => `<div class="row"><div class="main-col"><div class="title">${fmtDate(h.date)}</div></div><div class="amt">${kr(h.value, false)}</div><button class="icon-btn" data-nwdel="${h.date}" aria-label="Slet måling">🗑️</button></div>`).join('')}</div></details>` : ''}
+    <div class="btn-row"><button class="btn btn-primary" style="flex:1" id="nwSave">${isNew ? 'Tilføj' : 'Gem ny værdi'}</button>${isNew ? '' : '<button class="btn btn-danger" id="nwDelItem">Slet</button>'}</div>`, sheet => {
+    let kind = x.kind; bindChips(sheet, 'nwkind', v => kind = v);
+    sheet.addEventListener('click', e => { const d = e.target.closest('[data-nwdel]'); if (!d) return; const real = nwItems().find(i => i.id === x.id); real.history = real.history.filter(h => h.date !== d.dataset.nwdel); save(); closeSheet(); render(); toast('Måling slettet'); });
+    $('#nwSave', sheet).onclick = () => {
+      const name = $('#nwName', sheet).value.trim(), val = parseAmount($('#nwVal', sheet).value), date = $('#nwDate', sheet).value || todayISO();
+      if (!name) { toast('Giv posten et navn'); return; }
+      if (!(val >= 0)) { toast('Skriv en værdi (0 eller mere)'); return; }
+      S.networth = S.networth || { items: [] };
+      let real = nwItems().find(i => i.id === x.id);
+      if (!real) { real = { id: uid(), side: x.side, history: [] }; S.networth.items.push(real); }
+      real.name = name; real.kind = kind;
+      real.history = (real.history || []).filter(h => h.date !== date); real.history.push({ date, value: Math.round(val * 100) / 100 });
+      save(); closeSheet(); render(); toast(isNew ? 'Tilføjet ✓' : 'Ny værdi gemt ✓');
+    };
+    const del = $('#nwDelItem', sheet); if (del) del.onclick = () => { if (!confirm(`Slet “${x.name}” og hele dens historik?`)) return; S.networth.items = nwItems().filter(i => i.id !== x.id); save(); closeSheet(); render(); toast('Slettet'); };
+  });
+}
+function openNwUpdateAll() {
+  const items = nwItems();
+  openSheet(`${sheetHead('Opdatér værdier')}
+    <p class="muted small">Skriv dagens værdi for hver post. Tomme felter beholder den seneste værdi.</p>
+    <div class="field"><label for="nwAllDate">Dato</label><input class="input" type="date" id="nwAllDate" value="${todayISO()}"></div>
+    <div class="list">${items.map(it => { const c = nwCur(it), k = NW_KINDS[it.side][it.kind] || ['📦']; return `<div class="row"><div class="avatar">${k[0]}</div><div class="main-col"><div class="title">${esc(it.name)}</div><div class="meta">seneste ${kr(c ? c.value : 0, false)}</div></div><input class="input" style="width:130px;text-align:right" inputmode="decimal" data-nwall="${it.id}" placeholder="${c ? nf0.format(c.value) : '0'}"></div>`; }).join('')}</div>
+    <button class="btn btn-primary btn-block" style="margin-top:14px" id="nwAllSave">Gem alle</button>`, sheet => {
+    $('#nwAllSave', sheet).onclick = () => {
+      const date = $('#nwAllDate', sheet).value || todayISO(); let n = 0;
+      sheet.querySelectorAll('[data-nwall]').forEach(inp => { const it = items.find(i => i.id === inp.dataset.nwall); const raw = inp.value.trim(); const v = raw ? parseAmount(raw) : nwCur(it)?.value; if (v == null || !(v >= 0)) return; it.history = (it.history || []).filter(h => h.date !== date); it.history.push({ date, value: Math.round(v * 100) / 100 }); n++; });
+      save(); closeSheet(); render(); toast(`${n} værdier gemt for ${fmtDate(date)} ✓`);
+    };
+  });
+}
+
 /* ---------- Visning: Mere & Indstillinger ---------- */
 function renderMere() {
-  const tiles = [['budget', '🎯', 'Budget', 'Loft pr. kategori'], ['jobs', '💼', 'Mine jobs', 'Samlet & pr. job'], ['abonnementer', '✂️', 'Abonnementsjæger', 'Faste poster & besparelser'], ['sparetips', '💡', 'Sparetips', '20 tips alle burde kende'], ['skole', '🎓', 'Økonomiskolen', `${SCHOOL_LESSONS.length} lektioner om penge`], ['renter', '🧮', 'Renters rente', 'Beregner med graf'], ['indstillinger', '⚙️', 'Indstillinger', 'Kategorier, backup, import']];
+  const tiles = [['budget', '🎯', 'Budget', 'Loft pr. kategori'], ['jobs', '💼', 'Mine jobs', 'Samlet & pr. job'], ['aarsoversigt', '📑', 'Årsoversigt til skat', 'Indtægter pr. job'], ['formue', '💎', 'Nettoformue', 'Aktiver minus gæld'], ['abonnementer', '✂️', 'Abonnementsjæger', 'Faste poster & besparelser'], ['sparetips', '💡', 'Sparetips', '20 tips alle burde kende'], ['skole', '🎓', 'Økonomiskolen', `${SCHOOL_LESSONS.length} lektioner om penge`], ['renter', '🧮', 'Renters rente', 'Beregner med graf'], ['hvadnu', '🔮', 'Hvad nu hvis', 'Prøv ændringer af'], ['indstillinger', '⚙️', 'Indstillinger', 'Kategorier, backup, import']];
   return `<div class="more-grid">${tiles.map(([r, e, t, d]) => `<a class="card more-tile" href="#/${r}"><div class="avatar">${e}</div><strong>${t}</strong><span>${d}</span></a>`).join('')}</div>`;
 }
 function renderIndstillinger() {
@@ -1009,7 +1284,8 @@ function renderIndstillinger() {
     <div class="card"><h2>Import fra bank</h2>
       <p class="muted small">Indlæs et kontoudtog som CSV eller Excel. Eksport fra <strong>Lån & Spar Bank</strong> genkendes automatisk – andre banker (fx Danske Bank, Nordea, Jyske Bank) virker også; der vælger du selv kolonnerne.</p>
       <button class="btn btn-primary" data-action="import-csv">🏦 Importér kontoudtog (CSV/Excel)</button>
-      <input type="file" id="csvFile" accept=".csv,.txt,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" hidden>
+      <div class="field-row" style="margin-top:12px;align-items:end"><div class="field"><label for="importRemind">🔔 Påmindelse om import</label><select class="input" id="importRemind">${[[0, 'Fra'], [7, 'Hver uge'], [14, 'Hver 14. dag'], [30, 'Hver måned']].map(([v, l]) => `<option value="${v}" ${(S.settings.importReminder ?? 14) === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+        <div class="field"><span class="lbl">Seneste import</span><div class="muted small" style="padding:10px 0">${lastImportDate() ? `${fmtDate(lastImportDate())} (${daysBetween(lastImportDate(), todayISO())} dage siden)` : 'Ingen endnu'}</div></div></div>
       <details class="tip"><summary>💡 Sådan henter du posteringer fra Lån & Spar</summary>
         <ol>
           <li>Log på netbanken på en computer, og klik på kontoen.</li>
@@ -1637,6 +1913,7 @@ async function openCsvImport(file) {
           S.transactions.push(o);
           if (r.user && r.key && !learnedKeys.has(r.type + r.key) && learnRule(r.note, r.type, r.categoryId, r.jobId)) { learned++; learnedKeys.add(r.type + r.key); }
         }
+        S.settings.lastImport = todayISO(); delete S.settings.importSnooze;
         applyRecurring(); save(); closeSheet();
         selMonth = list.map(t2 => t2.date.slice(0, 7)).sort().pop(); location.hash = '#/posteringer'; render();
         toast(`${list.length} posteringer gemt ✓${learned ? ` · ${learned} ${learned === 1 ? 'regel' : 'regler'} lært 🧠` : ''}`);
@@ -1703,6 +1980,16 @@ function loadExample() {
     { id: uid(), name: 'Japan-rejse 2027', emoji: '✈️', color: '#7c5cff', target: 25000, deadline: `${addMonths(now, 11)}-15`, example: true, contributions: contrib(1250, 7) },
     { id: uid(), name: 'Ny racercykel', emoji: '🚴', color: '#ffb547', target: 14000, deadline: `${addMonths(now, 4)}-01`, example: true, contributions: contrib(600, 5) }
   ];
+  const hist = (base, step, n = 12, noise = 0) => Array.from({ length: n }, (_, k) => ({ date: `${addMonths(now, -(n - 1 - k))}-${k === n - 1 ? today.slice(8) : '28'}`, value: Math.round(base + step * k + (noise ? (rnd() - .5) * noise : 0)) })).filter(h => h.date <= today);
+  S.networth = { items: [
+    { id: uid(), side: 'asset', kind: 'konto', name: 'Lønkonto – Lån & Spar', example: true, history: hist(9000, 300, 12, 6000) },
+    { id: uid(), side: 'asset', kind: 'opsparing', name: 'Opsparingskonto', example: true, history: hist(18000, 1500) },
+    { id: uid(), side: 'asset', kind: 'investering', name: 'Aktiesparekonto', example: true, history: hist(42000, 1600, 12, 5000) },
+    { id: uid(), side: 'asset', kind: 'pension', name: 'Pension (PensionsInfo)', example: true, history: hist(186000, 3100) },
+    { id: uid(), side: 'debt', kind: 'su', name: 'SU-lån', example: true, history: hist(96000, -900) },
+    { id: uid(), side: 'debt', kind: 'kredit', name: 'Kreditkort', example: true, history: hist(4200, -300, 12, 1200) }
+  ] };
+  S.settings.lastImport = addMonths(now, -1) + '-' + today.slice(8);
   S.isExample = true; selMonth = now; save(); render(); toast('Eksempeldata indlæst 🧪');
 }
 function clearExample() {
@@ -1710,6 +1997,7 @@ function clearExample() {
   S.transactions = S.transactions.filter(t => !t.example);
   S.recurring = S.recurring.filter(r => !r.example);
   S.goals = S.goals.filter(g => !g.example);
+  if (S.networth) S.networth.items = S.networth.items.filter(i => !i.example);
   S.categories.forEach(c => { const d = DEFAULT_CATEGORIES.find(x => x.id === c.id); if (d) c.budget = null; });
   S.isExample = false; save(); render(); toast('Eksempeldata fjernet');
 }
@@ -1746,7 +2034,15 @@ const actions = {
   'export-csv-month': () => download(`posteringer-${selMonth}.csv`, toCSV(stats(selMonth).tx), 'text/csv;charset=utf-8'),
   'import-csv': () => $('#csvFile').click(),
   'tip-filter': el => { tipFilter = el.dataset.f; render(); },
-  'calc-reset': () => { S.settings.calc = { ...CALC_DEF }; save(); render(); }
+  'calc-reset': () => { S.settings.calc = { ...CALC_DEF }; save(); render(); },
+  'snooze-import': () => { const d = new Date(); d.setDate(d.getDate() + 7); S.settings.importSnooze = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; save(); render(); toast('Påmindelsen er udsat i 7 dage'); },
+  'tax-year': el => { taxYear = el.dataset.y; render(); },
+  'tax-csv': el => taxCSV(el.dataset.y),
+  'print': () => window.print(),
+  'wi-reset': () => { S.settings.whatif = { ...WI_DEF }; save(); render(); },
+  'nw-add': el => openNwModal(null, el.dataset.side),
+  'nw-edit': el => { const it = nwItems().find(i => i.id === el.dataset.id); it && openNwModal(it); },
+  'nw-update-all': () => openNwUpdateAll()
 };
 document.addEventListener('click', e => {
   if (e.target.matches('[data-close-overlay]')) { closeSheet(); return; }
@@ -1759,6 +2055,8 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet()
 document.addEventListener('input', e => {
   if (e.target.id === 'txSearch') { txFilter.q = e.target.value; clearTimeout(window._sq); window._sq = setTimeout(render, 220); }
   if (e.target.id === 'jobRate' || e.target.id === 'jobRateNum') { const j = job(e.target.dataset.id); if (!j) return; j.taxRate = Math.max(0, Math.min(100, Number(e.target.value) || 0)); save(); clearTimeout(window._pr); window._pr = setTimeout(render, e.target.id === 'jobRate' ? 120 : 500); }
+  if (e.target.dataset && e.target.dataset.wi) setWhatif(e.target.dataset.wi, e.target.type === 'range' ? Number(e.target.value) : e.target.value, e.target.type === 'range' ? 'range' : 'num');
+  if (e.target.dataset && e.target.dataset.wicut) { const w = wiState(), v = Number(e.target.value); if (v) w.cuts[e.target.dataset.wicut] = v; else delete w.cuts[e.target.dataset.wicut]; S.settings.whatif = w; save(); e.target.style.setProperty('--p', v / 75 * 100 + '%'); const l = $('#wcv-' + e.target.dataset.wicut); if (l) l.textContent = v; updateWhatif(false); }
   if (e.target.dataset && e.target.dataset.calc) setCalc(e.target.dataset.calc, e.target.type === 'range' ? Number(e.target.value) : e.target.value, e.target.type === 'range' ? 'range' : 'num');
   if (e.target.id === 'nameInput') { S.settings.name = e.target.value.trim() || 'Simon'; save(); }
 });
@@ -1768,6 +2066,10 @@ document.addEventListener('change', async e => {
   if (id === 'txCat') { txFilter.cat = e.target.value; render(); }
   if (id === 'subSort') { S.settings.subSort = e.target.value; save(); render(); }
   if (e.target.dataset.calc && e.target.type !== 'range') { const f = CALC_F.find(x => x.k === e.target.dataset.calc) || { u: '%' }; e.target.value = fmtIn(f, calcState()[e.target.dataset.calc]); }
+  if (e.target.dataset.wisub) { const w = wiState(); const sid = e.target.dataset.wisub; w.cancel = e.target.checked ? [...new Set([...w.cancel, sid])] : w.cancel.filter(x => x !== sid); S.settings.whatif = w; save(); updateWhatif(false); }
+  if (e.target.dataset.wi && e.target.type !== 'range') e.target.value = nf0.format(wiState()[e.target.dataset.wi] || 0);
+  if (id === 'nwGoals') { S.settings.nwGoals = e.target.checked; save(); render(); }
+  if (id === 'importRemind') { S.settings.importReminder = Number(e.target.value); delete S.settings.importSnooze; save(); toast(Number(e.target.value) ? 'Påmindelse gemt ✓' : 'Påmindelse slået fra'); }
   if (id === 'calcReal') { S.settings.calc = { ...calcState(), real: e.target.checked }; save(); updateCalc(true); }
   if (e.target.dataset.lesson) {
     const set = lessonsRead(); e.target.checked ? set.add(e.target.dataset.lesson) : set.delete(e.target.dataset.lesson);
