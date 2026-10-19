@@ -3,7 +3,7 @@
    Data krypteres med AES-256-GCM med en nøgle fra en separat sync-adgangsfrase (PBKDF2-SHA256), før de forlader enheden.
    Drive ser kun én krypteret fil, okonomi.enc, i appens skjulte mappe, som hverken brugeren eller andre apps kan se. */
 const SYNC_CONFIG = {
-  googleClientId: 'DIN_GOOGLE_CLIENT_ID.apps.googleusercontent.com', // ← Indsæt OAuth Client ID (type "Web application") her – den eneste ændring, der skal til
+  googleClientId: '972011945646-9horpvtik4csvc1man07jjjkcnq0662k.apps.googleusercontent.com', // ← Indsæt OAuth Client ID (type "Web application") her – den eneste ændring, der skal til
   scope: 'https://www.googleapis.com/auth/drive.appdata',
   fileName: 'okonomi.enc',
   iter: 600000,
