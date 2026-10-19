@@ -52,10 +52,12 @@ Hosting: upload mappen som den er til en statisk host (GitHub Pages, Netlify, Ve
 - **Personlig inflation** (`#/inflation`): vægtet inflation ud fra dit eget forbrug de seneste 12 måneder × Danmarks Statistiks prisændring pr. varegruppe (PRIS01, september 2026 år over år; opdateres ikke automatisk) sammenlignet med den officielle inflation (2,2 %). Viser også eget forbrug år over år pr. kategori, når der er data for samme måneder to år i træk – ellers forklaring og regneeksempel.
 - 9 nye minikurser (i alt 28) og nyt spor **Arbejdsliv**: Personlig inflation, Lovlig skatteoptimering, Forhandl din løn, Økonomisk tryghed hvis du bliver syg, Sådan læser du en investeringsfond, Ratepension vs. aldersopsparing vs. livrente, Frynsegoder og beskatning, Køb af andelsbolig eller sommerhus, Din økonomiske nødplan.
 
-## v10 – Synkronisering med Dropbox (krypteret)
-- **Indstillinger → ☁️ Synkronisering med Dropbox**: "Forbind Dropbox", status, seneste synkronisering, "🔄 Synkroniser nu" og "Afbryd forbindelse".
-- OAuth 2 **PKCE** direkte i browseren (ingen client secret), `token_access_type=offline` → refresh token, så man forbliver logget ind. Scoped app med **App folder**-adgang: appen kan kun se sin egen mappe `Apps/<appnavn>/`.
-- Alle data krypteres på enheden med **AES-256-GCM** med en nøgle fra en separat **sync-adgangsfrase** (PBKDF2-SHA256, 600.000 iterationer, tilfældigt salt i filen), før de uploades som én fil: `/okonomi.enc`. Dropbox kan ikke læse indholdet. Adgangsfrasen kan ikke gendannes.
-- Synker ved åbning, ~4 sek. efter hver ændring, ved "Synkroniser nu", når nettet kommer tilbage og når appen kommer i forgrunden. Upload sker med `mode=update` + `rev` (strict conflict), så samtidige ændringer aldrig overskriver hinanden.
-- Fletning pr. id (posteringer, faste poster, mål og indbetalinger, jobs, regler, kategorier, formueposter og deres historik) mod sidst synkroniserede version; kursus-fremskridt, læste lektioner og tips samles. Er samme felt ændret to steder, spørges der, hvilken version der skal beholdes.
-- Opsætning: indsæt App key i `SYNC_CONFIG.dropboxAppKey` øverst i `sync.js`. Test: `tools/okonomi-v10-test.py` (mock af Dropbox API).
+## v10–v11 – Krypteret synkronisering med Google Drive
+- (v10 byggede synk mod Dropbox; i v11 er det skiftet til Google Drive, og Dropbox-koden er fjernet.)
+- **Indstillinger → ☁️ Synkronisering med Google Drive**: "Forbind Google Drive", status, seneste synkronisering, "🔄 Synkroniser nu", "🔑 Log ind igen" og "Afbryd forbindelse".
+- Login med **Google Identity Services token-klient** i browseren (OAuth 2, ingen client secret), kun scope `https://www.googleapis.com/auth/drive.appdata`. Filen `okonomi.enc` ligger i Drives skjulte **appDataFolder**, som kun denne app kan se.
+- Adgangstokens varer ca. 1 time. Udløbet token fornyes stille (`prompt: ''`), når browseren tillader det; ellers vises "Log ind igen" (i Indstillinger og som banner), og ændringer gemmes lokalt og synkroniseres efter login.
+- Alle data krypteres på enheden med **AES-256-GCM** med en nøgle fra en separat **sync-adgangsfrase** (PBKDF2-SHA256, 600.000 iterationer, tilfældigt salt i filen). Adgangsfrasen kan ikke gendannes.
+- Synker ved åbning, ~4 sek. efter hver ændring, ved "Synkroniser nu", når nettet kommer tilbage og når appen kommer i forgrunden.
+- Fletning pr. id (posteringer, faste poster, mål og indbetalinger, jobs, regler, kategorier, formueposter og historik) mod sidst synkroniserede version; kursus-fremskridt, læste lektioner og tips samles; samme felt ændret to steder → du vælger version. Hver upload har et id + historik, så en samtidig upload fra en anden enhed opdages og flettes uden at slette noget; dobbelte filer flettes og ryddes op.
+- Opsætning: indsæt OAuth Client ID i `SYNC_CONFIG.googleClientId` øverst i `sync.js`. Test: `tools/okonomi-v11-test.py` (mock af Google Identity Services + Drive API).

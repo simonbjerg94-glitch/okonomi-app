@@ -220,6 +220,7 @@ function render() {
   $('#monthPicker').classList.toggle('hidden', !def.month);
   $('#monthLabel').textContent = monthLabel(selMonth);
   $('#banner').innerHTML = S.isExample ? `<div class="banner"><span>🧪</span><div class="grow"><strong>Du ser eksempeldata.</strong> Alle tal er opdigtede og kun til at prøve appen.</div><button class="btn btn-sm" data-action="clear-example">Fjern eksempeldata</button></div>` : '';
+  $('#banner').insertAdjacentHTML('beforeend', `<div id="syncBannerSlot">${typeof syncBanner === 'function' ? syncBanner() : ''}</div>`);
   const view = $('#view');
   view.style.animation = 'none'; void view.offsetWidth; view.style.animation = '';
   view.innerHTML = def.render();
@@ -2225,7 +2226,7 @@ const actions = {
   'close': () => closeSheet(),
   'load-example': () => { if ((S.transactions.some(t => !t.example) || S.goals.some(g => !g.example)) && !confirm('Eksempeldata erstatter dine nuværende data. Tag evt. en backup først. Fortsæt?')) return; loadExample(); },
   'clear-example': () => clearExample(),
-  'reset': () => { if (!confirm(syncOn() ? 'Nulstil ALT? Alle posteringer, mål og kategorier slettes fra denne enhed – og fordi Dropbox-synkronisering er slået til, slettes de også på dine andre enheder.' : 'Nulstil ALT? Alle posteringer, mål og kategorier slettes fra denne enhed.')) return; const th = S.settings.theme; S = freshState(); S.settings.theme = th; save(); selMonth = curMonth(); location.hash = '#/overblik'; render(); toast('Appen er nulstillet'); },
+  'reset': () => { if (!confirm(syncOn() ? 'Nulstil ALT? Alle posteringer, mål og kategorier slettes fra denne enhed – og fordi Google Drive-synkronisering er slået til, slettes de også på dine andre enheder.' : 'Nulstil ALT? Alle posteringer, mål og kategorier slettes fra denne enhed.')) return; const th = S.settings.theme; S = freshState(); S.settings.theme = th; save(); selMonth = curMonth(); location.hash = '#/overblik'; render(); toast('Appen er nulstillet'); },
   'export-json': () => download(`okonomi-backup-${todayISO()}.json`, JSON.stringify(S, null, 2), 'application/json'),
   'import-json': () => $('#jsonFile').click(),
   'export-csv-all': () => download(`posteringer-${todayISO()}.csv`, toCSV(S.transactions), 'text/csv;charset=utf-8'),
@@ -2294,7 +2295,7 @@ document.addEventListener('change', async e => {
     try {
       const data = JSON.parse(await readFile(e.target.files[0]));
       if (!Array.isArray(data.categories) || !Array.isArray(data.transactions)) throw new Error('format');
-      if (!confirm(`Gendan backup med ${data.transactions.length} posteringer? Dine nuværende data bliver erstattet${syncOn() ? ' – også i Dropbox ved næste synkronisering' : ''}.`)) return;
+      if (!confirm(`Gendan backup med ${data.transactions.length} posteringer? Dine nuværende data bliver erstattet${syncOn() ? ' – også i Google Drive ved næste synkronisering' : ''}.`)) return;
       load(JSON.stringify(data)); save(); applyRecurring(); setTheme(S.settings.theme); toast('Backup gendannet ✓');
     } catch (err) { toast('Filen er ikke en gyldig backup'); }
     e.target.value = '';
@@ -2316,7 +2317,7 @@ function startApp(raw, first) {
   render();
   syncBoot();
 }
-afterRender.indstillinger = () => { const b = $('#pkAdd'); if (b) passkeyAvailable().then(ok => { if (!ok) b.outerHTML = '<span class="muted small">Ikke understøttet her</span>'; }); };
+afterRender.indstillinger = () => { if (typeof syncKeyReady === 'function' && syncKeyReady()) loadGis().catch(() => {}); const b = $('#pkAdd'); if (b) passkeyAvailable().then(ok => { if (!ok) b.outerHTML = '<span class="muted small">Ikke understøttet her</span>'; }); };
 lockBoot(startApp);
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));

@@ -1,4 +1,4 @@
-const CACHE = 'okonomi-v10';
+const CACHE = 'okonomi-v11';
 const ASSETS = [
   './', './index.html', './styles.css', './app.js', './skole.js', './kurser.js', './lock.js', './sync.js', './vendor/chart.umd.min.js', './vendor/xlsx.mini.min.js',
   './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png',
