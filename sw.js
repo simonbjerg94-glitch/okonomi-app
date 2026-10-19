@@ -1,6 +1,6 @@
-const CACHE = 'okonomi-v9';
+const CACHE = 'okonomi-v10';
 const ASSETS = [
-  './', './index.html', './styles.css', './app.js', './skole.js', './kurser.js', './lock.js', './vendor/chart.umd.min.js', './vendor/xlsx.mini.min.js',
+  './', './index.html', './styles.css', './app.js', './skole.js', './kurser.js', './lock.js', './sync.js', './vendor/chart.umd.min.js', './vendor/xlsx.mini.min.js',
   './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png',
   './icons/icon-maskable-512.png', './icons/apple-touch-icon.png'
 ];
@@ -18,7 +18,7 @@ self.addEventListener('fetch', e => {
   e.respondWith(caches.open(CACHE).then(async cache => {
     const cached = await cache.match(e.request, { ignoreSearch: true });
     const network = fetch(e.request).then(res => {
-      if (res && res.ok) cache.put(e.request, res.clone());
+      if (res && res.ok && !url.search) cache.put(e.request, res.clone());
       return res;
     }).catch(() => cached || cache.match('./index.html'));
     return cached || network;

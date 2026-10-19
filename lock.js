@@ -91,6 +91,7 @@ async function lockNow() {
   await Lock.queue; closeSheet();
   if (typeof charts !== 'undefined') charts.splice(0).forEach(c => c.destroy());
   document.getElementById('view').innerHTML = '';
+  if (typeof syncOnLock === 'function') syncOnLock();
   if (Lock.cfg.enc) { Lock.key = null; S = null; }
   showLockScreen();
 }
@@ -122,12 +123,12 @@ function openForgot() {
     f.onchange = async () => {
       try { const txt = await f.files[0].text(), data = JSON.parse(txt); if (!Array.isArray(data.categories) || !Array.isArray(data.transactions)) throw 0;
         if (!confirm(`Gendan backup med ${data.transactions.length} posteringer og fjern app-låsen?`)) return;
-        await Lock.queue; Lock.key = null; saveLockCfg(null); localStorage.setItem(KEY, JSON.stringify(data)); closeSheet(); unlockFresh(); toast('Backup gendannet – app-låsen er slået fra'); }
+        await Lock.queue; Lock.key = null; saveLockCfg(null); syncForget(); localStorage.setItem(KEY, JSON.stringify(data)); closeSheet(); unlockFresh(); toast('Backup gendannet – app-låsen er slået fra'); }
       catch (e) { toast('Filen er ikke en gyldig backup'); }
     };
     const c = sh.querySelector('#fgConfirm'), w = sh.querySelector('#fgWipe');
     c.oninput = () => { w.disabled = c.value.trim().toUpperCase() !== 'SLET'; };
-    w.onclick = async () => { if (!confirm('Sidste chance: Slet ALLE data på denne enhed permanent?')) return; await Lock.queue; Lock.key = null; saveLockCfg(null); localStorage.removeItem(KEY); closeSheet(); unlockFresh(); toast('Alle data er slettet'); };
+    w.onclick = async () => { if (!confirm('Sidste chance: Slet ALLE data på denne enhed permanent?')) return; await Lock.queue; Lock.key = null; saveLockCfg(null); syncForget(); localStorage.removeItem(KEY); closeSheet(); unlockFresh(); toast('Alle data er slettet'); };
   });
 }
 function unlockFresh() { Lock.locked = false; document.documentElement.classList.remove('locked'); const el = document.getElementById('lockScreen'); el.hidden = true; el.innerHTML = ''; Lock.onStart(null, !Lock.started); Lock.started = true; }

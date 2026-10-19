@@ -617,3 +617,10 @@ a.btn { text-decoration: none; }
 .pi-bar span { display: block; height: 100%; border-radius: 99px; }
 .pi-tbl td.muted { white-space: normal; min-width: 140px; }
 .pi-kpis > .kpi:last-child { grid-column: auto !important; }
+
+/* v10: Dropbox-synkronisering */
+#syncCard h2 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+#syncCard h2 .pill { font-size: 12px; }
+.sync-warn { padding: 10px 12px; border-radius: 12px; background: rgba(255,181,71,.12); color: var(--text); border-left: 3px solid var(--warn); }
+.sync-choice { margin-top: 14px; }
+.sync-choice .btn { flex: 1 1 180px; }

@@ -113,6 +113,7 @@ function migrate() {
 function save() {
   if (!S) return;
   const txt = JSON.stringify(S);
+  if (typeof syncNoteChange === 'function') { syncNoteChange(); syncCheckFormat(); }
   if (typeof lockWrite === 'function' && lockWrite(txt)) return;
   try { localStorage.setItem(KEY, txt); }
   catch (e) { toast('Kunne ikke gemme – browserens lager er fuldt'); }
@@ -1492,6 +1493,7 @@ function renderIndstillinger() {
       </details>
     </div>
   </div>
+  ${syncSettingsCard()}
   ${lockSettingsCard()}
   <div class="card section" id="rulesCard"><h2>🧠 Lærte regler <small>${(S.rules || []).length} stk.</small></h2>
     <p class="muted small">Når du retter kategorien for en forretning (under import eller senere), husker appen det og bruger det automatisk næste gang – før de indbyggede regler.</p>
@@ -2223,7 +2225,7 @@ const actions = {
   'close': () => closeSheet(),
   'load-example': () => { if ((S.transactions.some(t => !t.example) || S.goals.some(g => !g.example)) && !confirm('Eksempeldata erstatter dine nuværende data. Tag evt. en backup først. Fortsæt?')) return; loadExample(); },
   'clear-example': () => clearExample(),
-  'reset': () => { if (!confirm('Nulstil ALT? Alle posteringer, mål og kategorier slettes fra denne enhed.')) return; const th = S.settings.theme; S = freshState(); S.settings.theme = th; save(); selMonth = curMonth(); location.hash = '#/overblik'; render(); toast('Appen er nulstillet'); },
+  'reset': () => { if (!confirm(syncOn() ? 'Nulstil ALT? Alle posteringer, mål og kategorier slettes fra denne enhed – og fordi Dropbox-synkronisering er slået til, slettes de også på dine andre enheder.' : 'Nulstil ALT? Alle posteringer, mål og kategorier slettes fra denne enhed.')) return; const th = S.settings.theme; S = freshState(); S.settings.theme = th; save(); selMonth = curMonth(); location.hash = '#/overblik'; render(); toast('Appen er nulstillet'); },
   'export-json': () => download(`okonomi-backup-${todayISO()}.json`, JSON.stringify(S, null, 2), 'application/json'),
   'import-json': () => $('#jsonFile').click(),
   'export-csv-all': () => download(`posteringer-${todayISO()}.csv`, toCSV(S.transactions), 'text/csv;charset=utf-8'),
@@ -2245,7 +2247,7 @@ const actions = {
   'quiz-retry': el => { quizRun = { id: el.dataset.id, i: 0, picked: [] }; location.hash = courseLink({ id: el.dataset.id }, 'quiz'); render(); },
   'show-badges': () => { location.hash = '#/skole'; setTimeout(() => $('#badges')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120); }
 };
-Object.assign(actions, lockActions);
+Object.assign(actions, lockActions, syncActions);
 document.addEventListener('click', e => {
   if (e.target.matches('[data-close-overlay]')) { closeSheet(); return; }
   const el = e.target.closest('[data-action]'); if (!el) return;
@@ -2292,7 +2294,7 @@ document.addEventListener('change', async e => {
     try {
       const data = JSON.parse(await readFile(e.target.files[0]));
       if (!Array.isArray(data.categories) || !Array.isArray(data.transactions)) throw new Error('format');
-      if (!confirm(`Gendan backup med ${data.transactions.length} posteringer? Dine nuværende data bliver erstattet.`)) return;
+      if (!confirm(`Gendan backup med ${data.transactions.length} posteringer? Dine nuværende data bliver erstattet${syncOn() ? ' – også i Dropbox ved næste synkronisering' : ''}.`)) return;
       load(JSON.stringify(data)); save(); applyRecurring(); setTheme(S.settings.theme); toast('Backup gendannet ✓');
     } catch (err) { toast('Filen er ikke en gyldig backup'); }
     e.target.value = '';
@@ -2312,6 +2314,7 @@ function startApp(raw, first) {
   document.querySelector('meta[name="theme-color"]').setAttribute('content', S.settings.theme === 'dark' ? '#0b0d17' : '#f4f5fb');
   applyRecurring();
   render();
+  syncBoot();
 }
 afterRender.indstillinger = () => { const b = $('#pkAdd'); if (b) passkeyAvailable().then(ok => { if (!ok) b.outerHTML = '<span class="muted small">Ikke understøttet her</span>'; }); };
 lockBoot(startApp);
