@@ -164,7 +164,7 @@ function openPassSheet(file, onOk) {
 }
 
 /* ---------- Fletning ---------- */
-const SYNC_LISTS = { transactions: {}, recurring: {}, goals: { contributions: 'id' }, jobs: {}, rules: {}, categories: {} };
+const SYNC_LISTS = { transactions: {}, recurring: {}, goals: { contributions: 'id' }, jobs: {}, rules: {}, categories: {}, receipts: {} };
 const NW_NESTED = { history: 'date' };
 function itemLabel(coll, it) {
   if (!it) return '';

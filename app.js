@@ -82,7 +82,7 @@ function load(raw) {
   if (S && S.enc) throw new Error('Data er krypteret – lås op først');
   if (!S || !Array.isArray(S.categories)) S = freshState();
   S.settings = Object.assign({ theme: 'dark', ptTaxRate: 40, name: 'Simon', subSort: 'amount-desc' }, S.settings || {});
-  ['transactions', 'recurring', 'goals'].forEach(k => { if (!Array.isArray(S[k])) S[k] = []; });
+  ['transactions', 'recurring', 'goals', 'receipts'].forEach(k => { if (!Array.isArray(S[k])) S[k] = []; });
   if (migrate()) save();
 }
 /* Migrering af ældre data (v1 -> v2: jobs). Sletter aldrig noget. */
@@ -432,7 +432,7 @@ function txRow(t) {
   return `<div class="row click" data-action="edit-tx" data-id="${t.id}">
     <div class="avatar" style="background:${c.color}22">${c.emoji}</div>
     <div class="main-col"><div class="title">${esc(t.note || c.name)}</div>
-      <div class="meta">${esc(c.name)} · ${fmtDate(t.date)} ${t.recurringId ? '<span class="pill accent">🔁 Fast</span>' : ''} ${t.example ? '<span class="pill">eksempel</span>' : ''}</div></div>
+      <div class="meta">${esc(c.name)} · ${fmtDate(t.date)} ${t.recurringId ? '<span class="pill accent">🔁 Fast</span>' : ''} ${t.receiptId ? `<span class="pill ok bon-pill" data-bonview="${t.receiptId}" title="Se bon">🧾 ${t.cashReceipt ? 'Kontant' : 'Bon'}</span>` : ''} ${t.example ? '<span class="pill">eksempel</span>' : ''}</div></div>
     <div class="amt ${t.type === 'income' ? 'pos' : ''}">${t.type === 'income' ? '+' : '−'}${kr(t.amount)}</div>
   </div>`;
 }
@@ -455,6 +455,7 @@ function renderPosteringer() {
     <select class="input" id="txCat" style="width:auto"><option value="all">Alle kategorier</option>
       ${S.categories.map(c => `<option value="${c.id}" ${txFilter.cat === c.id ? 'selected' : ''}>${c.emoji} ${esc(c.name)}</option>`).join('')}</select>
     <button class="btn btn-primary" data-action="add-tx">＋ Ny</button>
+    <button class="btn" data-action="scan-bon">📷 Bon</button>
     <button class="btn" data-action="export-csv-month">⬇️ CSV</button>
   </div>
   <div class="grid kpis" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
@@ -2003,6 +2004,7 @@ async function openCsvImport(file) {
     </details>
     ${transfers ? `<label class="switch"><span>Spring kontooverførsler over <span class="muted small">(${transfers} “Til/Fra …”-overførsler mellem konti)</span></span><input type="checkbox" id="mSkipTr"></label>` : ''}
     <div id="rvSummary" class="rv-summary"></div>
+    <div id="rvBon"></div>
     <div id="rvSugg"></div>
     <p class="muted small" style="margin:4px 2px 10px">Ret kategori${S.jobs.length ? ' og job' : ''} direkte i listen – appen husker dit valg for den forretning næste gang. Markér flere for at ændre dem på én gang.</p>
     <div id="rvList"></div>
@@ -2033,6 +2035,7 @@ async function openCsvImport(file) {
         return o;
       }).filter(Boolean);
       suggestions = detectRecurring(rows);
+      rows.forEach(o => { delete o.bonId; delete o.bonNo; });
     };
     const catOpts = (type, sel) => catsOf(type).map(c => `<option value="${c.id}" ${c.id === sel ? 'selected' : ''}>${c.emoji} ${esc(c.name)}</option>`).join('');
     const jobOpts = sel => `<option value="">Intet job</option>` + S.jobs.map(j => `<option value="${j.id}" ${j.id === sel ? 'selected' : ''}>${j.emoji} ${esc(j.name)}</option>`).join('');
@@ -2043,7 +2046,7 @@ async function openCsvImport(file) {
         <div class="rv-sub"><span class="rv-date">${fmtDate(r.date)}</span>
           ${r.dupe ? '<span class="pill">Dublet – springes over</span>' : `<select class="mini rv-cat" data-rid="${r.id}" aria-label="Kategori">${catOpts(r.type, r.categoryId)}</select>
           ${r.type === 'income' && S.jobs.length ? `<select class="mini rv-job" data-rid="${r.id}" aria-label="Job">${jobOpts(r.jobId)}</select>` : ''}
-          ${r.matched ? `<span class="pill accent">🔁 ${esc(r.matched)}</span>` : ''}${r.source === 'rule' && !r.user ? '<span class="pill ok">🧠 lært</span>' : ''}`}
+          ${r.bonId ? `<span class="pill ok">🧾 Bon${bonById(r.bonId)?.store ? ' · ' + esc(bonById(r.bonId).store) : ''}</span>` : ''}${r.matched ? `<span class="pill accent">🔁 ${esc(r.matched)}</span>` : ''}${r.source === 'rule' && !r.user ? '<span class="pill ok">🧠 lært</span>' : ''}`}
         </div>
       </div>
       ${r.dupe ? '' : `<button type="button" class="rv-inc ${r.include ? 'on' : ''}" data-rid="${r.id}" title="${r.include ? 'Medtages – tryk for at udelade' : 'Udeladt – tryk for at medtage'}" aria-label="${r.include ? 'Udelad' : 'Medtag'}">${r.include ? '✓' : '✕'}</button>`}
@@ -2053,6 +2056,9 @@ async function openCsvImport(file) {
       const inc = rows.filter(r => r.include), dup = rows.filter(r => r.dupe), off = rows.filter(r => !r.include && !r.dupe);
       const sIn = sum(inc.filter(r => r.type === 'income').map(r => r.amount)), sOut = sum(inc.filter(r => r.type === 'expense').map(r => r.amount));
       $('#rvSummary', sheet).innerHTML = `<div class="rv-stat"><b>${inc.length}</b><span>gemmes</span></div><div class="rv-stat"><b class="pos">+${kr(sIn, false)}</b><span>ind</span></div><div class="rv-stat"><b class="neg">−${kr(sOut, false)}</b><span>ud</span></div><div class="rv-stat"><b>${dup.length + off.length}</b><span>${dup.length && off.length ? `springes over (${dup.length} dubl.)` : dup.length ? 'dubletter' : 'udeladt'}</span></div>`;
+      const bonAsk = bonImportMatch(rows), bonAuto = rows.filter(r => r.bonId && r.include);
+      $('#rvBon', sheet).innerHTML = (bonAuto.length ? `<div class="banner ok"><span>🧾</span><div class="grow"><strong>${bonAuto.length} ${bonAuto.length === 1 ? 'bon knyttes' : 'bonner knyttes'} til betalingen</strong> – bonnen bliver et bilag og tælles ikke med igen.</div></div>` : '')
+        + bonAsk.map(x => bonAskHTML(x.r, x.cands.map(c => ({ ...c, t: { ...c.t, id: c.t.id } })), 'import')).join('');
       const sg = suggestions.filter(s => !dismissed.has(s.id));
       $('#rvSugg', sheet).innerHTML = sg.length ? `<div class="rv-sugg"><h3>🔁 Ser ud til at være faste poster <small class="muted">(${sg.length})</small></h3>${(suggAll ? sg : sg.slice(0, 3)).map(s => `<div class="rv-sugg-item"><div class="avatar" style="background:${cat(s.categoryId).color}22">${cat(s.categoryId).emoji}</div><div class="main-col"><div class="title">${esc(s.name)}</div><div class="meta">${s.type === 'income' ? '+' : '−'}${kr(s.amount)} · ca. d. ${s.day}. · set ${s.months} måneder</div></div><button class="btn btn-sm btn-primary" data-sugg="${esc(s.id)}"><span class="hide-sm">Gør til </span>fast post</button><button class="icon-btn" data-sugg-x="${esc(s.id)}" aria-label="Ignorér">✕</button></div>`).join('')}${sg.length > 3 ? `<button class="btn btn-sm btn-ghost rv-more" data-sugg-more>${suggAll ? 'Vis færre' : `Vis alle ${sg.length} forslag`}</button>` : ''}</div>` : '';
       const groups = {};
@@ -2094,6 +2100,8 @@ async function openCsvImport(file) {
     });
     sheet.addEventListener('click', e => {
       const t = e.target;
+      const by = t.closest('[data-bonyes][data-scope="import"]'); if (by) { const r = byId(by.dataset.tx); rows.forEach(o => { if (o.bonId === by.dataset.bonyes) delete o.bonId; }); if (r) { r.bonId = by.dataset.bonyes; r.bonAuto = false; } renderReview(); toast('🧾 Bonen knyttes til betalingen'); return; }
+      const bn = t.closest('[data-bonno][data-scope="import"]'); if (bn) { rows.forEach(o => { if (!o.bonId) (o.bonNo = o.bonNo || []).push(bn.dataset.bonno); }); renderReview(); return; }
       const inc = t.closest('.rv-inc'); if (inc) { const r = byId(inc.dataset.rid); r.include = !r.include; renderReview(); return; }
       if (t.id === 'bulkOff' || t.id === 'bulkOn') { rows.filter(r => r.sel).forEach(r => { r.include = t.id === 'bulkOn'; r.sel = false; }); renderReview(); return; }
       if (t.id === 'bulkClear') { rows.forEach(r => r.sel = false); renderReview(); return; }
@@ -2120,10 +2128,11 @@ async function openCsvImport(file) {
           S.transactions.push(o);
           if (r.user && r.key && !learnedKeys.has(r.type + r.key) && learnRule(r.note, r.type, r.categoryId, r.jobId)) { learned++; learnedKeys.add(r.type + r.key); }
         }
+        const bonN = bonImportApply(list);
         S.settings.lastImport = todayISO(); delete S.settings.importSnooze;
         applyRecurring(); save(); closeSheet();
         selMonth = list.map(t2 => t2.date.slice(0, 7)).sort().pop(); location.hash = '#/posteringer'; render();
-        toast(`${list.length} posteringer gemt ✓${learned ? ` · ${learned} ${learned === 1 ? 'regel' : 'regler'} lært 🧠` : ''}`);
+        toast(`${list.length} posteringer gemt ✓${learned ? ` · ${learned} ${learned === 1 ? 'regel' : 'regler'} lært 🧠` : ''}${bonN ? ` · ${bonN} 🧾 ${bonN === 1 ? 'bon' : 'bonner'} knyttet` : ''}`);
       }
     });
     build(); renderReview();
@@ -2212,6 +2221,7 @@ function clearExample() {
 /* ---------- Hændelser ---------- */
 const actions = {
   'add-tx': () => openTxModal(),
+  'scan-bon': () => openBonScan(),
   'quick-add': () => openQuickAdd(),
   'edit-tx': el => { const t = S.transactions.find(x => x.id === el.dataset.id); t && openTxModal(t); },
   'add-rec': () => openRecModal(),

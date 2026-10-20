@@ -4,6 +4,7 @@ const tools = () => (S.settings.tools = S.settings.tools || {});
 const tSet = (k, v) => { tools()[k] = v; save(); };
 const TOOL_LIST = [
   ['abon', '✂️', 'Abonnementsjæger', 'Find faste træk i dine posteringer', '#/abonnementer'],
+  ['bon', '🧾', 'Bon-scanning', 'Scan bonner – knyttes til betalingen'],
   ['rapport', '📰', 'Månedens rapport', 'Forbrug, opsparing og et tip'],
   ['maal', '🏆', 'Sparemål med billeder', 'Mål, fremdrift og forventet dato', '#/maal'],
   ['fradrag', '🧾', 'Fradrags-huskeliste', 'Glem ingen fradrag – inkl. kørsel'],
@@ -18,7 +19,7 @@ const back = () => `<a class="btn btn-sm btn-ghost tool-back" href="#/vaerktoeje
 
 function renderVaerktoejer() {
   const id = routeParts()[1];
-  const r = { rapport: renderRapport, fradrag: renderFradrag, kalender: renderKalender, elforbrug: renderElforbrug, pension: renderPension, udfordringer: renderUdfordringer }[id];
+  const r = { bon: renderBonner, rapport: renderRapport, fradrag: renderFradrag, kalender: renderKalender, elforbrug: renderElforbrug, pension: renderPension, udfordringer: renderUdfordringer }[id];
   if (r) { document.getElementById('viewTitle').textContent = toolTitle(id); return `<div class="tool-page" data-tool="${id}">${back()}${r()}</div>`; }
   const subs = detectSubs(), opsig = subs.filter(s => subDecision(s.key) === 'opsig');
   const m = addMonths(curMonth(), -1), st = stats(m), bills = upcomingBills(1)[0];
@@ -26,6 +27,7 @@ function renderVaerktoejer() {
   const fd = fradragState(new Date().getFullYear()), fdDone = Object.values(fd.checks || {}).filter(Boolean).length;
   const meta = {
     abon: subs.length ? `${subs.length} fundet · ${opsig.length ? 'spar ' + kr(sum(opsig.map(s => s.yearly)), false) + '/år' : kr(sum(subs.map(s => s.yearly)), false) + '/år'}` : 'Importér kontoudtog for at finde træk',
+    bon: receipts().length ? `${receipts().length} bonner · ${receipts().filter(r => bonStatus(r) === 'pending').length} afventer bank` : 'Tag et billede af en bon',
     rapport: st.tx.length ? `${monthLabel(m)}: brugt ${kr(st.exp, false)}` : 'Ingen data for sidste måned endnu',
     maal: S.goals.length ? `${S.goals.length} mål · ${S.goals.filter(g => goalSaved(g) >= g.target).length} nået` : 'Opret dit første mål',
     fradrag: `${fdDone} af ${FRADRAG.length} tjekket for ${new Date().getFullYear()}`,

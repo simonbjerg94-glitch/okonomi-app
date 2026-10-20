@@ -742,3 +742,31 @@ a.btn { text-decoration: none; }
 .avatar.g-photo { overflow: hidden; padding: 0; }
 .confetti { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 9999; }
 @media (max-width: 899px) { .tool-grid { grid-template-columns: 1fr; gap: 10px; } .tool-card { padding: 13px 14px; } .rep-kpis, .bef-res { grid-template-columns: 1fr 1fr; } .rep-kpis > div:last-child { grid-column: span 2; } .bef-res > div:last-child { grid-column: span 2; } .rep-big { font-size: 24px; } .sub-dec { width: 100%; justify-content: flex-end; } .ef-cmp { width: 100%; justify-content: flex-end; } }
+
+/* v15 Bon-scanning */
+.bon-pick { display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0; }
+.bon-pick .btn { flex: 1; min-width: 140px; justify-content: center; }
+.bon-prog { height: 10px; border-radius: 99px; background: var(--input); overflow: hidden; margin: 18px 0 8px; }
+.bon-prog > div { height: 100%; width: 2%; background: linear-gradient(90deg, #7c5cff, #00c2ff); transition: width .3s; }
+.bon-edit { display: flex; gap: 14px; align-items: flex-start; }
+.bon-prev { width: 120px; border-radius: 12px; border: 1px solid var(--border); flex: none; }
+.bon-items { margin: 10px 0; font-size: 13px; }
+.bon-items summary { cursor: pointer; color: var(--muted); }
+.bon-item { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; border-bottom: 1px dashed var(--border); }
+.bon-thumb { width: 54px; height: 70px; object-fit: cover; object-position: top; border-radius: 10px; border: 1px solid var(--border); flex: none; background: var(--input); display: grid; place-items: center; font-size: 24px; }
+.bon-thumb.sm { width: 40px; height: 52px; font-size: 18px; }
+.bon-ask { display: flex; gap: 12px; padding: 14px; margin: 0 0 12px; border-radius: 16px; border: 1px solid rgba(255, 181, 71, .5); background: rgba(255, 181, 71, .08); }
+.bon-cand { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+.bon-ask > .grow > .btn-ghost { margin-top: 8px; }
+.bon-hero { display: flex; gap: 14px; align-items: center; margin-bottom: 12px; }
+.bon-hero p { margin: 4px 0 0; }
+.bon-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+.bon-kpis .kpi { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
+.bon-kpis .kpi span { font-size: 12px; color: var(--muted); } .bon-kpis .kpi b { font-size: 20px; }
+.bon-row { cursor: pointer; }
+.bon-side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.bon-side .icon-btn { width: 30px; height: 30px; font-size: 14px; }
+.bon-full { width: 100%; border-radius: 12px; margin: 8px 0; }
+.bon-pill { cursor: pointer; }
+.pill.warn { background: rgba(255, 181, 71, .16); color: #ffb547; }
+@media (max-width: 600px) { .bon-hero { flex-direction: column; align-items: stretch; } .bon-edit { flex-direction: column; } .bon-prev { width: 100%; max-height: 220px; object-fit: cover; object-position: top; } }
