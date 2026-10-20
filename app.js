@@ -189,6 +189,7 @@ const ROUTES = {
   renter: { title: 'Renters rente', ico: '🧮', render: renderRenter },
   hvadnu: { title: 'Hvad nu hvis', ico: '🔮', render: renderHvadnu },
   inflation: { title: 'Personlig inflation', ico: '🧺', render: renderInflation },
+  elpriser: { title: 'Elpriser', ico: '⚡', render: renderElpriser },
   indstillinger: { title: 'Indstillinger', ico: '⚙️', render: renderIndstillinger },
   mere: { title: 'Mere', ico: '☰', render: renderMere, hidden: true }
 };
@@ -200,7 +201,7 @@ function renderNav() {
   const r = route();
   $('#sideNav').innerHTML = Object.entries(ROUTES).filter(([, v]) => !v.hidden).map(([k, v]) =>
     `<a class="nav-link ${k === r ? 'active' : ''}" href="#/${k}"><span class="ico">${v.ico}</span>${v.title}</a>`).join('');
-  const moreActive = ['budget', 'jobs', 'aarsoversigt', 'formue', 'abonnementer', 'sparetips', 'skole', 'renter', 'hvadnu', 'inflation', 'indstillinger', 'mere'].includes(r);
+  const moreActive = ['budget', 'jobs', 'aarsoversigt', 'formue', 'abonnementer', 'sparetips', 'skole', 'renter', 'hvadnu', 'inflation', 'elpriser', 'indstillinger', 'mere'].includes(r);
   $('#bottomNav').innerHTML = `
     <a href="#/overblik" class="${r === 'overblik' ? 'active' : ''}"><span class="ico">📊</span>Overblik</a>
     <a href="#/posteringer" class="${r === 'posteringer' ? 'active' : ''}"><span class="ico">🧾</span>Poster</a>
@@ -1452,7 +1453,7 @@ function openNwUpdateAll() {
 
 /* ---------- Visning: Mere & Indstillinger ---------- */
 function renderMere() {
-  const tiles = [['budget', '🎯', 'Budget', 'Loft pr. kategori'], ['jobs', '💼', 'Mine jobs', 'Samlet & pr. job'], ['aarsoversigt', '📑', 'Årsoversigt til skat', 'Indtægter pr. job'], ['formue', '💎', 'Nettoformue', 'Aktiver minus gæld'], ['abonnementer', '✂️', 'Abonnementsjæger', 'Faste poster & besparelser'], ['sparetips', '💡', 'Sparetips', '20 tips alle burde kende'], ['skole', '🎓', 'Økonomiskolen', `${COURSES.length} minikurser · ${SCHOOL_LESSONS.length} lektioner`], ['renter', '🧮', 'Renters rente', 'Beregner med graf'], ['hvadnu', '🔮', 'Hvad nu hvis', 'Prøv ændringer af'], ['inflation', '🧺', 'Personlig inflation', 'Din egen prisudvikling'], ['indstillinger', '⚙️', 'Indstillinger', 'Kategorier, backup, import']];
+  const tiles = [['budget', '🎯', 'Budget', 'Loft pr. kategori'], ['jobs', '💼', 'Mine jobs', 'Samlet & pr. job'], ['aarsoversigt', '📑', 'Årsoversigt til skat', 'Indtægter pr. job'], ['formue', '💎', 'Nettoformue', 'Aktiver minus gæld'], ['abonnementer', '✂️', 'Abonnementsjæger', 'Faste poster & besparelser'], ['sparetips', '💡', 'Sparetips', '20 tips alle burde kende'], ['skole', '🎓', 'Økonomiskolen', `${COURSES.length} minikurser · ${SCHOOL_LESSONS.length} lektioner`], ['renter', '🧮', 'Renters rente', 'Beregner med graf'], ['hvadnu', '🔮', 'Hvad nu hvis', 'Prøv ændringer af'], ['inflation', '🧺', 'Personlig inflation', 'Din egen prisudvikling'], ['elpriser', '⚡', 'Elpriser', 'Billig strøm i dag & i morgen'], ['indstillinger', '⚙️', 'Indstillinger', 'Kategorier, backup, import']];
   return `<div class="more-grid">${tiles.map(([r, e, t, d]) => `<a class="card more-tile" href="#/${r}"><div class="avatar">${e}</div><strong>${t}</strong><span>${d}</span></a>`).join('')}</div>`;
 }
 function renderIndstillinger() {
@@ -2248,7 +2249,8 @@ const actions = {
   'quiz-retry': el => { quizRun = { id: el.dataset.id, i: 0, picked: [] }; location.hash = courseLink({ id: el.dataset.id }, 'quiz'); render(); },
   'show-badges': () => { location.hash = '#/skole'; setTimeout(() => $('#badges')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120); }
 };
-Object.assign(actions, lockActions, syncActions);
+Object.assign(actions, lockActions, syncActions, elActions);
+afterRender.elpriser = () => elChart();
 document.addEventListener('click', e => {
   if (e.target.matches('[data-close-overlay]')) { closeSheet(); return; }
   const el = e.target.closest('[data-action]'); if (!el) return;

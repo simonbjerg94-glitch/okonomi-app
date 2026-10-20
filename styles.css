@@ -624,3 +624,53 @@ a.btn { text-decoration: none; }
 .sync-warn { padding: 10px 12px; border-radius: 12px; background: rgba(255,181,71,.12); color: var(--text); border-left: 3px solid var(--warn); }
 .sync-choice { margin-top: 14px; }
 .sync-choice .btn { flex: 1 1 180px; }
+
+/* v13: Elpriser */
+.el-area, .el-days { max-width: 460px; }
+.el-area button { font-size: 13.5px; }
+.el-now .value { font-size: 30px; }
+.el-now .label { flex-wrap: wrap; }
+.pill.el-cheap { background: rgba(255,255,255,.95); color: #0f9b6f; font-size: 12px; animation: elPulse 2s ease-in-out infinite; }
+@keyframes elPulse { 50% { box-shadow: 0 0 0 6px rgba(34,211,154,.25); } }
+.el-chart { height: 260px; }
+.el-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; }
+.el-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.el-legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.el-legend i.el-nowmark { width: 0; height: 14px; border-left: 2px dashed var(--text); border-radius: 0; }
+.el-mode { margin-top: 4px; }
+#elSettings summary { cursor: pointer; list-style: none; }
+#elSettings summary::-webkit-details-marker { display: none; }
+#elSettings summary::after { content: '▾'; float: right; color: var(--muted); }
+#elSettings[open] summary { margin-bottom: 10px; }
+#elWindow h3 { font-size: 15px; margin: 16px 0 6px; }
+@media (max-width: 899px) { .el-chart { height: 220px; } .el-now .value { font-size: 28px; } }
+@media (prefers-reduced-motion: reduce) { .pill.el-cheap { animation: none; } }
+/* Elpris-udsigt */
+.elu-row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(138px, 42%); gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 4px 2px 10px; margin: 0 -2px; }
+.elu-card { scroll-snap-align: start; border-radius: 18px; padding: 12px 12px 10px; border: 1px solid var(--border); background: var(--input); position: relative; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.elu-card.good { background: linear-gradient(160deg, rgba(34,211,154,.28), rgba(34,211,154,.06)); border-color: rgba(34,211,154,.45); }
+.elu-card.mid { background: linear-gradient(160deg, rgba(255,181,71,.26), rgba(255,181,71,.05)); border-color: rgba(255,181,71,.42); }
+.elu-card.bad { background: linear-gradient(160deg, rgba(255,107,139,.24), rgba(255,107,139,.05)); border-color: rgba(255,107,139,.4); }
+.elu-card.fade1 { opacity: .78; filter: saturate(.7); }
+.elu-card.fade2 { opacity: .55; filter: saturate(.25) grayscale(.35); border-style: dashed; }
+.elu-top { display: flex; justify-content: space-between; align-items: flex-start; }
+.elu-wd { font-weight: 700; font-size: 15px; }
+.elu-date { color: var(--muted); font-size: 12px; }
+.elu-face { font-size: 30px; line-height: 1; }
+.elu-p { font-size: 32px; font-weight: 800; letter-spacing: -.03em; line-height: 1.05; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.elu-card.good .elu-p { color: var(--pos); } .elu-card.mid .elu-p { color: var(--warn); } .elu-card.bad .elu-p { color: var(--neg); }
+.elu-plab { font-size: 11.5px; color: var(--muted); margin-top: -2px; }
+.elu-blocks { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; height: 44px; align-items: end; margin: 6px 0 2px; }
+.elu-blocks span { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; }
+.elu-blocks i { width: 100%; background: currentColor; border-radius: 4px 4px 2px 2px; opacity: .75; display: block; }
+.elu-card.good .elu-blocks { color: var(--pos); } .elu-card.mid .elu-blocks { color: var(--warn); } .elu-card.bad .elu-blocks { color: var(--neg); }
+.elu-blocks em { font-style: normal; font-size: 9.5px; color: var(--muted); margin-top: 2px; }
+.elu-wx { display: flex; flex-wrap: wrap; gap: 2px 8px; font-size: 12px; margin-top: 4px; }
+.elu-range { font-size: 12.5px; font-weight: 650; }
+.elu-cert { margin-top: 4px; align-self: flex-start; font-size: 11px; font-weight: 650; padding: 2px 8px; border-radius: 999px; background: rgba(0,0,0,.18); color: var(--text); }
+[data-theme="light"] .elu-cert { background: rgba(0,0,0,.07); }
+.elu-disc { margin-top: 8px; padding: 10px 12px; border-radius: 12px; background: var(--input); font-size: 13px; line-height: 1.5; border-left: 3px solid var(--accent-2); }
+.elu-how { margin-top: 10px; font-size: 13.5px; line-height: 1.55; }
+.elu-how summary { cursor: pointer; font-weight: 650; color: var(--accent-2); }
+.elu-how ul { padding-left: 18px; margin: 8px 0; }
+@media (min-width: 900px) { .elu-row { grid-auto-flow: row; grid-template-columns: repeat(7, 1fr); overflow: visible; } }
