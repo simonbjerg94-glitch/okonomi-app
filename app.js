@@ -190,6 +190,7 @@ const ROUTES = {
   hvadnu: { title: 'Hvad nu hvis', ico: '🔮', render: renderHvadnu },
   inflation: { title: 'Personlig inflation', ico: '🧺', render: renderInflation },
   elpriser: { title: 'Elpriser', ico: '⚡', render: renderElpriser },
+  vaerktoejer: { title: 'Værktøjer', ico: '🧰', render: renderVaerktoejer },
   indstillinger: { title: 'Indstillinger', ico: '⚙️', render: renderIndstillinger },
   mere: { title: 'Mere', ico: '☰', render: renderMere, hidden: true }
 };
@@ -201,7 +202,7 @@ function renderNav() {
   const r = route();
   $('#sideNav').innerHTML = Object.entries(ROUTES).filter(([, v]) => !v.hidden).map(([k, v]) =>
     `<a class="nav-link ${k === r ? 'active' : ''}" href="#/${k}"><span class="ico">${v.ico}</span>${v.title}</a>`).join('');
-  const moreActive = ['budget', 'jobs', 'aarsoversigt', 'formue', 'abonnementer', 'sparetips', 'skole', 'renter', 'hvadnu', 'inflation', 'elpriser', 'indstillinger', 'mere'].includes(r);
+  const moreActive = ['budget', 'jobs', 'aarsoversigt', 'formue', 'abonnementer', 'sparetips', 'skole', 'renter', 'hvadnu', 'inflation', 'elpriser', 'vaerktoejer', 'indstillinger', 'mere'].includes(r);
   $('#bottomNav').innerHTML = `
     <a href="#/overblik" class="${r === 'overblik' ? 'active' : ''}"><span class="ico">📊</span>Overblik</a>
     <a href="#/posteringer" class="${r === 'posteringer' ? 'active' : ''}"><span class="ico">🧾</span>Poster</a>
@@ -551,7 +552,7 @@ function goalCard(g, fallback) {
     else fc += g.deadline ? ` – før deadline. 👌` : '.';
   }
   return `<div class="card goal-card">
-    <div class="goal-head"><div class="avatar" style="background:${g.color || '#7c5cff'}26">${g.emoji || '🎯'}</div>
+    <div class="goal-head"><div class="avatar ${g.image ? 'g-photo' : ''}" style="background:${g.color || '#7c5cff'}26">${g.image ? `<img src="${g.image}" alt="">` : g.emoji || '🎯'}</div>
       <div class="main-col" style="min-width:0"><div class="title" style="font-weight:650">${esc(g.name)}</div><div class="meta small muted">${g.deadline ? 'Deadline ' + fmtDate(g.deadline) : 'Ingen deadline'}</div><div style="margin-top:4px">${pill} ${g.example ? '<span class="pill">eksempel</span>' : ''}</div></div>
       <div class="ring" style="--p:${p}" data-label="${nf0.format(p)} %"></div></div>
     <div class="big" style="margin-top:12px">${kr(f.saved, false)} <span class="muted" style="font-size:14px;font-weight:500">af ${kr(g.target, false)}</span></div>
@@ -761,6 +762,7 @@ function renderAbonnementer() {
     <div class="card kpi"><div class="label">✂️ Overvejer at opsige</div><div class="value">${marked.length}</div><div class="sub">${marked.length ? marked.map(r => esc(r.name)).join(', ') : 'tryk ✂️ på en post'}</div></div>
     <div class="card kpi"><div class="label">💡 Mulig besparelse</div><div class="value pos">${kr(saving, false)}</div><div class="sub">om året (${kr(saving / 12, false)}/md.)</div></div>
   </div>
+  ${subsDetectedCard()}
   <div class="toolbar section">
     <label class="lbl" for="subSort">Sortér</label>
     <select class="input" id="subSort" style="width:auto">
@@ -1453,7 +1455,7 @@ function openNwUpdateAll() {
 
 /* ---------- Visning: Mere & Indstillinger ---------- */
 function renderMere() {
-  const tiles = [['budget', '🎯', 'Budget', 'Loft pr. kategori'], ['jobs', '💼', 'Mine jobs', 'Samlet & pr. job'], ['aarsoversigt', '📑', 'Årsoversigt til skat', 'Indtægter pr. job'], ['formue', '💎', 'Nettoformue', 'Aktiver minus gæld'], ['abonnementer', '✂️', 'Abonnementsjæger', 'Faste poster & besparelser'], ['sparetips', '💡', 'Sparetips', '20 tips alle burde kende'], ['skole', '🎓', 'Økonomiskolen', `${COURSES.length} minikurser · ${SCHOOL_LESSONS.length} lektioner`], ['renter', '🧮', 'Renters rente', 'Beregner med graf'], ['hvadnu', '🔮', 'Hvad nu hvis', 'Prøv ændringer af'], ['inflation', '🧺', 'Personlig inflation', 'Din egen prisudvikling'], ['elpriser', '⚡', 'Elpriser', 'Billig strøm i dag & i morgen'], ['indstillinger', '⚙️', 'Indstillinger', 'Kategorier, backup, import']];
+  const tiles = [['vaerktoejer', '🧰', 'Værktøjer', 'Rapport, fradrag, regninger, pension, udfordringer'], ['budget', '🎯', 'Budget', 'Loft pr. kategori'], ['jobs', '💼', 'Mine jobs', 'Samlet & pr. job'], ['aarsoversigt', '📑', 'Årsoversigt til skat', 'Indtægter pr. job'], ['formue', '💎', 'Nettoformue', 'Aktiver minus gæld'], ['abonnementer', '✂️', 'Abonnementsjæger', 'Faste poster & besparelser'], ['sparetips', '💡', 'Sparetips', '20 tips alle burde kende'], ['skole', '🎓', 'Økonomiskolen', `${COURSES.length} minikurser · ${SCHOOL_LESSONS.length} lektioner`], ['renter', '🧮', 'Renters rente', 'Beregner med graf'], ['hvadnu', '🔮', 'Hvad nu hvis', 'Prøv ændringer af'], ['inflation', '🧺', 'Personlig inflation', 'Din egen prisudvikling'], ['elpriser', '⚡', 'Elpriser', 'Billig strøm i dag & i morgen'], ['indstillinger', '⚙️', 'Indstillinger', 'Kategorier, backup, import']];
   return `<div class="more-grid">${tiles.map(([r, e, t, d]) => `<a class="card more-tile" href="#/${r}"><div class="avatar">${e}</div><strong>${t}</strong><span>${d}</span></a>`).join('')}</div>`;
 }
 function renderIndstillinger() {
@@ -1712,19 +1714,23 @@ function openGoalModal(g) {
   const x = g ? { ...g } : { name: '', emoji: '🎯', target: '', deadline: '', color: COLORS[S.goals.length % COLORS.length] };
   openSheet(`${sheetHead(isNew ? 'Nyt opsparingsmål' : 'Rediger mål')}
     <div class="field"><span class="lbl">Ikon</span><div class="chips" data-chips="gemoji">${GOAL_EMOJI.map(e => `<button type="button" class="chip ${e === x.emoji ? 'on' : ''}" data-val="${e}" style="font-size:18px">${e}</button>`).join('')}</div></div>
+    <div class="field"><span class="lbl">Billede <span class="muted small">(valgfrit – vises i stedet for ikonet)</span></span><div class="g-img-row"><div class="g-img-prev" id="gImgPrev">${x.image ? `<img src="${x.image}" alt="">` : esc(x.emoji || '🎯')}</div><button type="button" class="btn btn-sm" id="gImgBtn">📷 Vælg billede</button><button type="button" class="btn btn-sm btn-ghost" id="gImgDel" ${x.image ? '' : 'hidden'}>Fjern</button><input type="file" id="gImgFile" accept="image/*" hidden></div></div>
     <div class="field"><label for="gName">Navn</label><input class="input" id="gName" placeholder="Fx Buffer, Ferie, Ny cykel" value="${esc(x.name)}" autofocus></div>
     <div class="field-row"><div class="field"><label for="gTarget">Målbeløb</label><input class="input" id="gTarget" inputmode="decimal" placeholder="25.000" value="${x.target !== '' ? nf2.format(x.target) : ''}"></div>
       <div class="field"><label for="gDeadline">Deadline</label><input class="input" type="date" id="gDeadline" value="${x.deadline || ''}"></div></div>
     ${isNew ? `<div class="field"><label for="gStart">Allerede sparet op</label><input class="input" id="gStart" inputmode="decimal" placeholder="0,00"></div>` : ''}
     <div class="field"><span class="lbl">Farve</span><div class="chips" id="gColors">${COLORS.slice(0, 8).map(c => `<span class="color-dot ${c === x.color ? 'on' : ''}" data-c="${c}" style="background:${c}"></span>`).join('')}</div></div>
     <div class="btn-row"><button class="btn btn-primary" style="flex:1" id="gSave">Gem mål</button>${isNew ? '' : '<button class="btn btn-danger" id="gDel">Slet</button>'}</div>`, sheet => {
-    let emoji = x.emoji, color = x.color;
-    bindChips(sheet, 'gemoji', v => emoji = v);
+    let emoji = x.emoji, color = x.color, image = x.image || '';
+    bindChips(sheet, 'gemoji', v => { emoji = v; if (!image) $('#gImgPrev', sheet).textContent = v; });
+    $('#gImgBtn', sheet).onclick = () => $('#gImgFile', sheet).click();
+    $('#gImgFile', sheet).onchange = async e => { const f = e.target.files[0]; if (!f) return; try { image = await goalImageFromFile(f); $('#gImgPrev', sheet).innerHTML = `<img src="${image}" alt="">`; $('#gImgDel', sheet).hidden = false; } catch (err) { toast('Billedet kunne ikke læses'); } };
+    $('#gImgDel', sheet).onclick = () => { image = ''; $('#gImgPrev', sheet).textContent = emoji; $('#gImgDel', sheet).hidden = true; };
     $('#gColors', sheet).addEventListener('click', e => { const d = e.target.closest('.color-dot'); if (!d) return; color = d.dataset.c; $$('.color-dot', sheet).forEach(q => q.classList.toggle('on', q === d)); });
     $('#gSave', sheet).onclick = () => {
       const target = parseAmount($('#gTarget', sheet).value);
       if (!(target > 0)) { toast('Skriv et målbeløb'); return; }
-      const data = { name: $('#gName', sheet).value.trim() || 'Mit mål', emoji, color, target, deadline: $('#gDeadline', sheet).value || '' };
+      const data = { name: $('#gName', sheet).value.trim() || 'Mit mål', emoji, color, target, deadline: $('#gDeadline', sheet).value || '', image: image || undefined };
       if (isNew) { const st = parseAmount($('#gStart', sheet).value); S.goals.push({ id: uid(), ...data, contributions: st > 0 ? [{ id: uid(), date: todayISO(), amount: st, note: 'Startbeløb', initial: true }] : [] }); }
       else Object.assign(g, data);
       save(); closeSheet(); render(); toast('Mål gemt ✓');
@@ -1746,8 +1752,9 @@ function openContribute(g) {
     sheet.addEventListener('click', e => { const q = e.target.closest('[data-quick]'); if (q) $('#cAmount', sheet).value = nf2.format(Number(q.dataset.quick)); });
     $('#cSave', sheet).onclick = () => {
       const a = Math.abs(parseAmount($('#cAmount', sheet).value)); if (!(a > 0)) { toast('Skriv et beløb'); return; }
-      g.contributions = g.contributions || []; g.contributions.push({ id: uid(), date: $('#cDate', sheet).value || todayISO(), amount: sign * a });
-      save(); closeSheet(); render(); toast(sign > 0 ? `${kr(a)} sat ind 🎉` : `${kr(a)} hævet`);
+      const before = goalSaved(g); g.contributions = g.contributions || []; g.contributions.push({ id: uid(), date: $('#cDate', sheet).value || todayISO(), amount: sign * a });
+      save(); closeSheet(); render();
+      if (before < g.target && goalSaved(g) >= g.target) { confetti(); toast(`🎉 Du har nået dit mål: ${g.name}!`); } else toast(sign > 0 ? `${kr(a)} sat ind 🎉` : `${kr(a)} hævet`);
     };
   });
 }

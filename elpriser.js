@@ -176,7 +176,7 @@ function elChart() {
         y: { beginAtZero: true, ticks: { callback: v => nfKwh.format(v) } } } },
     plugins: [elNowLine] });
 }
-function elRefresh() { if (typeof route === 'function' && route() === 'elpriser' && S && !document.querySelector('#modalRoot .sheet')) { const y = window.scrollY, open = document.getElementById('elSettings')?.open; render(); window.scrollTo({ top: y }); if (open) document.getElementById('elSettings').open = true; } }
+function elRefresh() { if (typeof route === 'function' && (route() === 'elpriser' || (route() === 'vaerktoejer' && routeParts()[1] === 'elforbrug')) && S && !document.querySelector('#modalRoot .sheet')) { const y = window.scrollY, open = document.getElementById('elSettings')?.open; render(); window.scrollTo({ top: y }); if (open) document.getElementById('elSettings').open = true; } }
 
 /* ---------- Billig-varsler (mens appen er åben) ---------- */
 function elTick() {
